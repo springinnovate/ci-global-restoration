@@ -78,6 +78,7 @@ def main():
 
     LOGGER.info('align raster stack')
     align_task = task_graph.add_task(
+        func=geoprocessing.align_and_resize_raster_stack,
         args=(
             base_raster_path_list,
             aligned_raster_path_list, ['mode', 'average', 'mode'],
