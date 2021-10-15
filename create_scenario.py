@@ -2,12 +2,11 @@
 import argparse
 import logging
 import os
-import tempfile
 
 from osgeo import gdal
 from ecoshard import geoprocessing
 import numpy
-
+import taskgraph
 
 gdal.SetCacheMax(2**30)
 logging.basicConfig(
@@ -20,7 +19,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _flip_pixel_proportion(
-        base_array, probability_array, flip_target, flip_proportion, flip_nodata):
+        base_array, probability_array, flip_target, flip_proportion,
+        flip_nodata):
     """Flip pixels in `base_array` to `flip_target` where prob >= prop.
 
     Args:
@@ -63,8 +63,10 @@ def main():
         f'''{flip_basename}_{args.flip_proportion}_{
             os.path.basename(args.lulc_path)}''')
 
-    workspace_dir = tempfile.mkdtemp(
-        dir='.', prefix='create_scenario_workspace_')
+    workspace_dir = '_create_scenario_workspace'
+    os.makedirs(workspace_dir, exist_ok=True)
+
+    task_graph = taskgraph.TaskGraph(workspace_dir, -1)
 
     base_raster_path_list = [
         args.lulc_path, args.probability_path, args.flip_target_path]
@@ -75,21 +77,32 @@ def main():
     lulc_info = geoprocessing.get_raster_info(args.lulc_path)
 
     LOGGER.info('align raster stack')
-    geoprocessing.align_and_resize_raster_stack(
-        base_raster_path_list,
-        aligned_raster_path_list, ['mode', 'average', 'mode'],
-        lulc_info['pixel_size'], 'union')
+    align_task = task_graph.add_task(
+        args=(
+            base_raster_path_list,
+            aligned_raster_path_list, ['mode', 'average', 'mode'],
+            lulc_info['pixel_size'], 'union'),
+        target_path_list=aligned_raster_path_list,
+        task_name='align raster stack')
 
     LOGGER.info(
         f'flip values >= {args.flip_proportion} to {args.flip_target_path}')
 
     prob_nodata = geoprocessing.get_raster_info(
         args.flip_proportion)['nodata'][0]
-    geoprocessing.raster_calculator(
-        [(p, 1) for p in aligned_raster_path_list] + [
-            (args.flip_proportion, 'raw'), (prob_nodata, 'raw')],
-        _flip_pixel_proportion, target_raster_path,
-        lulc_info['datatype'], lulc_info['nodata'][0])
+    task_graph.add_task(
+        func=geoprocessing.raster_calculator,
+        args=(
+            [(p, 1) for p in aligned_raster_path_list] + [
+                (args.flip_proportion, 'raw'), (prob_nodata, 'raw')],
+            _flip_pixel_proportion, target_raster_path,
+            lulc_info['datatype'], lulc_info['nodata'][0]),
+        target_path_list=[target_raster_path],
+        dependent_task_list=[align_task],
+        task_name='flip pixels on scenario')
+
+    task_graph.close()
+    task_graph.join()
 
 
 if __name__ == '__main__':
