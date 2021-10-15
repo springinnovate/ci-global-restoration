@@ -20,22 +20,25 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _flip_pixel_proportion(
-        base_array, probability_array, flip_target, flip_proportion):
+        base_array, probability_array, flip_target, flip_proportion, flip_nodata):
     """Flip pixels in `base_array` to `flip_target` where prob >= prop.
 
     Args:
         base_array (numpy.ndarray of int): base integer array
         probability_array (numpy.ndarray of float): values 0 <= x <= 1.
-        flip_proportion (float): in [0, 1] indicates which pixels to flip
-            in base if equivalent pixel in probability is >= to this value
         flip_target (int): target integer to set if base pixel is to be
             flipped.
+        flip_proportion (float): in [0, 1] indicates which pixels to flip
+            in base if equivalent pixel in probability is >= to this value
+        flip_nodata (float): nodata value for flip proportion
 
     Returns:
         numpy.ndarray with pixels flipped where > flip proportion
     """
     result = numpy.copy(base_array)
-    flip_mask = probability_array >= flip_proportion
+    flip_mask = (
+        (probability_array >= flip_proportion) &
+        (flip_proportion != flip_nodata))
     result[flip_mask] = flip_target[flip_mask]
     return result
 
@@ -50,20 +53,21 @@ def main():
     parser.add_argument(
         'flip_proportion', type=float, help='value in 0..1 to flip lulc pixel')
     parser.add_argument(
-        'flip_target_path', type=int,
+        'flip_target_path', type=str,
         help='value to set in lulc raster if prop > flip_prop')
     args = parser.parse_args()
 
+    flip_basename = os.path.basename(
+        os.path.splitext(args.flip_target_path)[0])
     target_raster_path = (
-        f'''{args.flip_target}_{args.flip_proportion_}_{
+        f'''{flip_basename}_{args.flip_proportion}_{
             os.path.basename(args.lulc_path)}''')
 
     workspace_dir = tempfile.mkdtemp(
-        dir='.', prefix='create_scenario_workspace')
+        dir='.', prefix='create_scenario_workspace_')
 
     base_raster_path_list = [
-        (args.lulc_path, 1), (args.probability_path, 1),
-        (args.flip_target_path, 1)]
+        args.lulc_path, args.probability_path, args.flip_target_path]
 
     aligned_raster_path_list = [
         os.path.join(workspace_dir, os.path.basename(path))
@@ -78,8 +82,12 @@ def main():
 
     LOGGER.info(
         f'flip values >= {args.flip_proportion} to {args.flip_target_path}')
+
+    prob_nodata = geoprocessing.get_raster_info(
+        args.flip_proportion)['nodata'][0]
     geoprocessing.raster_calculator(
-        aligned_raster_path_list + [(args.flip_proportion, 'raw')],
+        [(p, 1) for p in aligned_raster_path_list] + [
+            (args.flip_proportion, 'raw'), (prob_nodata, 'raw')],
         _flip_pixel_proportion, target_raster_path,
         lulc_info['datatype'], lulc_info['nodata'][0])
 
