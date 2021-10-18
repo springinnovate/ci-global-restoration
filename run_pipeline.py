@@ -19,6 +19,29 @@ LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'ci_pipeline_workspace'
 
+DATA_URL_MAP = {
+    'dem_raster': '',
+}
+
+
+def _fetch_data(url_map, data_dir):
+    """Fetch data in url_map and copy to data_dir.
+
+    Return:
+        dict mapping `url_map` keys to actual file locations.
+    """
+    data_map
+
+
+def _run_sdr(data_map):
+    """Run SDR pipeline.
+
+    Args:
+        data_map (dict): maps globally known keys to raster paths
+
+    """
+    pass
+
 
 def main():
     """Entry point."""
