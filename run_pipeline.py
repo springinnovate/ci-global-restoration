@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import gzip
 
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -18,7 +19,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('ecoshard.taskgraph').setLevel(logging.DEBUG)
+logging.getLogger('ecoshard.taskgraph').setLevel(logging.INFO)
 logging.getLogger('ecoshard.ecoshard').setLevel(logging.INFO)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
@@ -129,7 +130,7 @@ def fetch_data(ecoshard_map, data_dir):
                     args=(value, target_path),
                     target_path_list=[target_path],
                     task_name=f'download {value}')
-                data_map[value] = target_path
+                data_map[key] = target_path
             else:
                 LOGGER.warning(f'{key}: {value} does not refer to a url')
                 data_map[key] = value
@@ -142,9 +143,22 @@ def fetch_data(ecoshard_map, data_dir):
     return data_map
 
 
+def _unpack_archive(archive_path, dest_dir):
+    """Unpack archive to dest_dir."""
+    if archive_path.endswith('.gz'):
+        with gzip.open(archive_path, 'r') as f_in:
+            dest_path = os.path.join(
+                dest_dir, os.path.basename(os.path.splitext(archive_path)[0]))
+            with open(dest_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    else:
+        shutil.unpack_archive(archive_path, dest_dir)
+
+
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), parallel_mode='thread')
     data_dir = os.path.join(WORKSPACE_DIR, 'data')
     LOGGER.info('downloading data')
     fetch_task = task_graph.add_task(
@@ -153,11 +167,24 @@ def main():
         store_result=True,
         task_name='download ecoshards')
     file_map = fetch_task.get()
+    LOGGER.debug(file_map)
     LOGGER.info('downloaded data')
     dem_dir = os.path.join(data_dir, 'dem')
     dem_vrt_path = os.path.join(dem_dir, 'dem.vrt')
     LOGGER.info('unpack dem')
-    _unpack_and_vrt_tiles(file_map['DEM'], dem_dir, -9999, dem_vrt_path)
+    _ = task_graph.add_task(
+        func=_unpack_and_vrt_tiles,
+        args=(file_map['DEM'], dem_dir, -9999, dem_vrt_path),
+        target_path_list=[dem_vrt_path],
+        task_name=f'unpack {file_map["DEM"]}')
+    for compressed_id in ['Waves', 'Watersheds']:
+        _ = task_graph.add_task(
+            func=_unpack_archive,
+            args=(file_map[compressed_id], data_dir),
+            task_name=f'decompress {file_map[compressed_id]}')
+    LOGGER.debug('wait for unpack')
+    task_graph.join()
+    task_graph.close()
 
 
 if __name__ == '__main__':
