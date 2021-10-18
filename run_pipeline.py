@@ -155,10 +155,8 @@ def _unpack_archive(archive_path, dest_dir):
         shutil.unpack_archive(archive_path, dest_dir)
 
 
-def main():
-    """Entry point."""
-    task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), parallel_mode='thread')
+def fetch_and_unpack_data(task_graph):
+    """Fetch & unpack data subroutine."""
     data_dir = os.path.join(WORKSPACE_DIR, 'data')
     LOGGER.info('downloading data')
     fetch_task = task_graph.add_task(
@@ -185,6 +183,13 @@ def main():
     LOGGER.debug('wait for unpack')
     task_graph.join()
     task_graph.close()
+
+
+def main():
+    """Entry point."""
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), parallel_mode='thread')
+    fetch_and_unpack_data(task_graph)
 
 
 if __name__ == '__main__':
