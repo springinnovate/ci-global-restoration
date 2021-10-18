@@ -1,7 +1,10 @@
 """Entry point to manage data and run pipeline."""
+import glob
+import itertools
 import logging
 import multiprocessing
 import os
+import shutil
 
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -56,6 +59,41 @@ ECOSHARD_MAP = {
     }
 
 
+def _flatten_dir(working_dir):
+    """Move all files in subdirectory to `working_dir`."""
+    all_files = []
+    # itertools lets us skip the first iteration (current dir)
+    for root, _dirs, files in itertools.islice(os.walk(working_dir), 1, None):
+        for filename in files:
+            all_files.append(os.path.join(root, filename))
+    for filename in all_files:
+        shutil.move(filename, working_dir)
+
+
+def _unpack_and_vrt_tiles(
+        zip_path, unpack_dir, target_nodata, target_vrt_path):
+    """Unzip multi-file of tiles and create VRT.
+
+    Args:
+        zip_path (str): path to zip file of tiles
+        unpack_dir (str): path to directory to unpack tiles
+        target_vrt_path (str): desired target path for VRT.
+
+    Returns:
+        None
+    """
+    shutil.unpack_archive(zip_path, unpack_dir)
+    _flatten_dir(unpack_dir)
+    base_raster_path_list = glob.glob(os.path.join(unpack_dir, '*.tif'))
+    vrt_options = gdal.BuildVRTOptions(VRTNodata=target_nodata)
+    gdal.BuildVRT(
+        target_vrt_path, base_raster_path_list, options=vrt_options)
+    target_dem = gdal.OpenEx(target_vrt_path, gdal.OF_RASTER)
+    if target_dem is None:
+        raise RuntimeError(
+            f"didn't make VRT at {target_vrt_path} on: {zip_path}")
+
+
 def _download_and_validate(url, target_path):
     """Download an ecoshard and validate its hash."""
     ecoshard.download_url(url, target_path)
@@ -106,10 +144,20 @@ def fetch_data(ecoshard_map, data_dir):
 
 def main():
     """Entry point."""
+    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
     data_dir = os.path.join(WORKSPACE_DIR, 'data')
     LOGGER.info('downloading data')
-    fetch_data(ECOSHARD_MAP, data_dir)
+    fetch_task = task_graph.add_task(
+        func=fetch_data,
+        args=(ECOSHARD_MAP, data_dir),
+        store_result=True,
+        task_name='download ecoshards')
+    file_map = fetch_task.get()
     LOGGER.info('downloaded data')
+    dem_dir = os.path.join(data_dir, 'dem')
+    dem_vrt_path = os.path.join(dem_dir, 'dem.vrt')
+    LOGGER.info('unpack dem')
+    _unpack_and_vrt_tiles(file_map['DEM'], dem_dir, -9999, dem_vrt_path)
 
 
 if __name__ == '__main__':
