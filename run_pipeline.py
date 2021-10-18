@@ -184,6 +184,29 @@ def fetch_and_unpack_data(task_graph):
     task_graph.join()
     task_graph.close()
 
+def _run_sdr():
+    pass
+
+
+def _run_ndr():
+    pass
+
+
+def _run_cv():
+    pass
+
+
+def _run_pollination_nature_access():
+    pass
+
+
+def _run_downstream_beneficiaries():
+    pass
+
+
+def _run_coastal_beneficiares():
+    pass
+
 
 def main():
     """Entry point."""
