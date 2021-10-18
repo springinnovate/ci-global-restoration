@@ -1,12 +1,34 @@
 """Entry point to manage data and run pipeline."""
+import logging
+import multiprocessing
+import os
 
+from ecoshard import taskgraph
+from osgeo import gdal
+import ecoshard
+import requests
+
+
+gdal.SetCacheMax(2**30)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=(
+        '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
+        ' [%(funcName)s:%(lineno)d] %(message)s'))
+logging.getLogger('ecoshard.taskgraph').setLevel(logging.DEBUG)
+logging.getLogger('ecoshard.ecoshard').setLevel(logging.INFO)
+logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
+
+LOGGER = logging.getLogger(__name__)
+
+WORKSPACE_DIR = 'workspace'
 
 ECOSHARD_MAP = {
     'ESA_LULC': 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
-    'Scenario1_LULC': None,
-    'Biophysical table': None,
+    'Scenario1_LULC': 'None',
+    'Biophysical table': 'None',
     'DEM': 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
-    'Erosivity': 'https://storage.googleapis.com/ecoshard-root/GlobalR_NoPol_compressed_md5_ab6d34ca8827daa3fda42a96b6190ecc.tif',
+    'Erosivity': 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
     'Erodibility': 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
     'Watersheds': 'https://storage.googleapis.com/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
     'Precipitation': 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/worldclim_2015_md5_16356b3770460a390de7e761a27dbfa1.tif',
@@ -28,14 +50,66 @@ ECOSHARD_MAP = {
     'World borders': 'https://storage.googleapis.com/ecoshard-root/critical_natural_capital/TM_WORLD_BORDERS-0.3_simplified_md5_47f2059be8d4016072aa6abe77762021.gpkg',
     'Habitat mask ESA': '(need to make from LULC above)',
     'Habitat mask Scenario1': '(need to make from LULC above)',
-    'Coastal population' :'(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
+    'Coastal population': '(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
     'Coastal habitat masks ESA': '(will be outputs of CV)',
     'Coastal habitat masks Scenario 1': '(will be outputs of CV)',
     }
 
+
+def _download_and_validate(url, target_path):
+    """Download an ecoshard and validate its hash."""
+    ecoshard.download_url(url, target_path)
+    if not ecoshard.validate(target_path):
+        raise ValueError(f'{target_path} did not validate on its hash')
+
+
+def fetch_data(ecoshard_map, data_dir):
+    """Download data in `ecoshard_map` and replace urls with targets.
+
+    Any values that are not urls are kept and a warning is logged.
+
+    Args:
+        ecoshard_map (dict): key/value pairs where if value is a url that
+            file is downloaded and verified against its hash.
+        data_dir (str): path to a directory to store downloaded data.
+
+    Returns:
+        dict of {value: filepath} map where `filepath` is the path to the
+            downloaded file stored in `data_dir`. If the original value was
+            not a url it is copied as-is.
+    """
+    task_graph = taskgraph.TaskGraph(
+        data_dir, multiprocessing.cpu_count(), parallel_mode='thread')
+    data_map = {}
+    for key, value in ecoshard_map.items():
+        if value.startswith('http'):
+            response = requests.head(value)
+            if response:
+                target_path = os.path.join(data_dir, os.path.basename(value))
+                task_graph.add_task(
+                    func=ecoshard.download_url,
+                    args=(value, target_path),
+                    target_path_list=[target_path],
+                    task_name=f'download {value}')
+                data_map[value] = target_path
+            else:
+                LOGGER.warning(f'{key}: {value} does not refer to a url')
+                data_map[key] = value
+        else:
+            data_map[key] = value
+    LOGGER.info('waiting for downloads to complete')
+    task_graph.close()
+    task_graph.join()
+    task_graph = None
+    return data_map
+
+
 def main():
     """Entry point."""
-    pass
+    data_dir = os.path.join(WORKSPACE_DIR, 'data')
+    LOGGER.info('downloading data')
+    fetch_data(ECOSHARD_MAP, data_dir)
+    LOGGER.info('downloaded data')
 
 
 if __name__ == '__main__':
