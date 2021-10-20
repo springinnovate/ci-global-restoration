@@ -30,22 +30,42 @@ logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace'
+SDR_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'sdr_workspace')
+
+TARGET_PIXEL_SIZE_M = 300  # pixel size in m when operating on projected data
+
+# These SDR constants are what we used as the defaults in a previous project
+THRESHOLD_FLOW_ACCUMULATION = 1000
+L_CAP = 122
+K_PARAM = 2
+SDR_MAX = 0.8
+IC_0_PARAM = 0.5
+
+
+DEM_KEY = 'dem'
+EROSIVITY_KEY = 'erosivity'
+ERODIBILITY_KEY = 'erodibility'
+LULC_KEY = 'lulc'
+SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
+WATERSHEDS_KEY = 'watersheds'
+WAVES_KEY = 'waves'
+SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'lucode'
 
 ECOSHARD_MAP = {
     'ESA_LULC': 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     'Scenario1_LULC': 'None',
-    'sdr_biophysical_table': 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
+    SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
     'ndr_biophysical_table': 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
-    'DEM': 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
-    'Erosivity': 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
-    'Erodibility': 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
-    'Watersheds': 'https://storage.googleapis.com/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
+    DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
+    EROSIVITY_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
+    ERODIBILITY_KEY: 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
+    WATERSHEDS_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
     'Precipitation': 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/worldclim_2015_md5_16356b3770460a390de7e761a27dbfa1.tif',
     'Fertilizer': 'https://storage.googleapis.com/nci-ecoshards/scenarios050420/NCI_Ext_RevB_add_backgroundN_md5_e4a9cc537cd0092d346e4287e7bd4c36.tif',
     'Global polygon': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/ipbes-cv_global_polygon_simplified_geometries_md5_653118dde775057e24de52542b01eaee.gpkg',
     'Buffered shore': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/buffered_global_shore_5km_md5_a68e1049c1c03673add014cd29b7b368.gpkg',
     'Shore grid': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/shore_grid_md5_07aea173cf373474c096f1d5e3463c2f.gpkg',
-    'Waves': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/wave_watch_iii_md5_c8bb1ce4739e0a27ee608303c217ab5b.gpkg.gz',
+    WAVES_KEY: 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/wave_watch_iii_md5_c8bb1ce4739e0a27ee608303c217ab5b.gpkg.gz',
     'Coastal DEM': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/global_dem_md5_22c5c09ac4c4c722c844ab331b34996c.tif',
     'SLR': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/MSL_Map_MERGED_Global_AVISO_NoGIA_Adjust_md5_3072845759841d0b2523d00fe9518fee.tif',
     'Geomorphology': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/geomorphology_md5_e65eff55840e7a80cfcb11fdad2d02d7.gpkg',
@@ -172,16 +192,16 @@ def fetch_and_unpack_data(task_graph):
     file_map = fetch_task.get()
     LOGGER.debug(file_map)
     LOGGER.info('downloaded data')
-    dem_dir = os.path.join(data_dir, 'dem')
+    dem_dir = os.path.join(data_dir, DEM_KEY)
     dem_vrt_path = os.path.join(dem_dir, 'dem.vrt')
     LOGGER.info('unpack dem')
     _ = task_graph.add_task(
         func=_unpack_and_vrt_tiles,
-        args=(file_map['DEM'], dem_dir, -9999, dem_vrt_path),
+        args=(file_map[DEM_KEY], dem_dir, -9999, dem_vrt_path),
         target_path_list=[dem_vrt_path],
         task_name=f'unpack {file_map["DEM"]}')
-    file_map['DEM'] = dem_vrt_path
-    for compressed_id in ['Waves', 'Watersheds']:
+    file_map[DEM_KEY] = dem_vrt_path
+    for compressed_id in [WAVES_KEY, WATERSHEDS_KEY]:
         _ = task_graph.add_task(
             func=_unpack_archive,
             args=(file_map[compressed_id], data_dir),
@@ -345,16 +365,15 @@ def _create_fid_subset(
     gpkg_driver.DeleteDataSource(unprojected_vector_path)
 
 
-
-
 def _run_sdr(
         workspace_dir,
-        watershed_subset,
+        watershed_path_list,
         dem_path,
         erosivity_path,
         erodibility_path,
         lulc_path,
         target_pixel_size,
+        biophysical_table_path,
         biophysical_table_lucode_field,
         threshold_flow_accumulation,
         c_factor_path,
@@ -373,10 +392,9 @@ def _run_sdr(
 
     Args:
         workspace_dir (str): path to directory to do all work
-        watershed_subset (list of list): lists of subwatersheds to process
-            in batch. Each element in the list is a
-            (shapefile_path, [fid1, fid2]) tuple where the fids refer to the
-            features in the given shapefile.
+        watershed_path_list (list): list of watershed vector files to
+            operate on locally. The base filenames are used as the workspace
+            directory path.
         dem_path (str): path to global DEM raster
         erosivity_path (str): path to global erosivity raster
         erodibility_path (str): path to erodability raster
@@ -404,23 +422,25 @@ def _run_sdr(
     # Iterate through each watershed subset and run SDR
     # stitch the results of whatever outputs to whatever global output raster.
 
-
-    args = {
-        'workspace_dir': '',
-        'results_suffix': '',
-        'dem_path': '',
-        'erosivity_path': '',
-        'erodibility_path': '',
-        'lulc_path': '',
-        'watersheds_path': '',
-        'biophysical_table_path': '',
-        'threshold_flow_accumulation': '',
-        'k_param': '',
-        'sdr_max': 0.8,
-        'ic_0_param': '',
-        'target_pixel_size': '',
-        'biophysical_table_lucode_field': '',
-    }
+    for watershed_path in watershed_path_list:
+        local_workspace_dir = os.path.join(
+            workspace_dir, os.path.splitext(os.path.basen(watershed_path))[0])
+        args = {
+            'workspace_dir': local_workspace_dir,
+            'dem_path': dem_path,
+            'erosivity_path': erosivity_path,
+            'erodibility_path': erodibility_path,
+            'lulc_path': lulc_path,
+            'watersheds_path': watershed_path,
+            'biophysical_table_path': biophysical_table_path,
+            'threshold_flow_accumulation': threshold_flow_accumulation,
+            'k_param': k_param,
+            'sdr_max': sdr_max,
+            'ic_0_param': ic_0_param,
+            'target_pixel_size': (target_pixel_size, -target_pixel_size),
+            'biophysical_table_lucode_field': biophysical_table_lucode_field,
+        }
+        LOGGER.debug(args)
 
 
 def _run_ndr():
@@ -455,11 +475,33 @@ def main():
         }
     watershed_subset = None
 
-    watershed_batch_list = (
+    watershed_subset_list = (
         _batch_into_watershed_subsets(
-            data_map['Watersheds'], 10, watershed_subset))
+            data_map[WATERSHEDS_KEY], 10, watershed_subset))
 
-    LOGGER.debug(len(watershed_batch_list))
+    LOGGER.debug(len(watershed_subset_list))
+
+    sdr_target_stitch_raster_map = {
+    }
+
+    _run_sdr(
+        SDR_WORKSPACE_DIR,
+        watershed_subset_list,
+        data_map[DEM_KEY],
+        data_map[EROSIVITY_KEY],
+        data_map[ERODIBILITY_KEY],
+        data_map[LULC_KEY],
+        TARGET_PIXEL_SIZE_M,
+        data_map[SDR_BIOPHYSICAL_TABLE_KEY],
+        SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+        THRESHOLD_FLOW_ACCUMULATION,
+        L_CAP,
+        K_PARAM,
+        SDR_MAX,
+        IC_0_PARAM,
+        sdr_target_stitch_raster_map,
+        keep_intermediate_files=False,
+        )
 
 
 if __name__ == '__main__':
