@@ -337,7 +337,7 @@ def _create_fid_subset(
     subset_vector.CopyLayer(
         layer, os.path.basename(os.path.splitext(target_vector_path)[0]))
     geoprocessing.reproject_vector(
-        base_vector_path, srs.ExportToWkt(), target_vector_path,
+        unprojected_vector_path, srs.ExportToWkt(), target_vector_path,
         driver_name='GPKG', copy_fields=False)
     subset_vector = None
     layer = None
