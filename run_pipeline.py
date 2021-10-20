@@ -331,12 +331,20 @@ def _create_fid_subset(
         f'"FID" in ('
         f'{", ".join([str(v) for v in fid_list])})')
     gpkg_driver = ogr.GetDriverByName('gpkg')
-    subset_vector = gpkg_driver.CreateDataSource(target_vector_path)
+    unprojected_vector_path = '%s_wgs84%s' % os.path.splitext(
+        target_vector_path)
+    subset_vector = gpkg_driver.CreateDataSource(unprojected_vector_path)
     subset_vector.CopyLayer(
         layer, os.path.basename(os.path.splitext(target_vector_path)[0]))
+    geoprocessing.reproject_vector(
+        base_vector_path, srs.ExportToWkt(), target_vector_path,
+        driver_name='GPKG', copy_fields=False)
     subset_vector = None
     layer = None
     vector = None
+    gpkg_driver.DeleteDataSource(unprojected_vector_path)
+
+
 
 
 def _run_sdr(
