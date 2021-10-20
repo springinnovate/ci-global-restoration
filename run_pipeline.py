@@ -108,16 +108,17 @@ def _unpack_and_vrt_tiles(
     Returns:
         None
     """
-    shutil.unpack_archive(zip_path, unpack_dir)
-    _flatten_dir(unpack_dir)
-    base_raster_path_list = glob.glob(os.path.join(unpack_dir, '*.tif'))
-    vrt_options = gdal.BuildVRTOptions(VRTNodata=target_nodata)
-    gdal.BuildVRT(
-        target_vrt_path, base_raster_path_list, options=vrt_options)
-    target_dem = gdal.OpenEx(target_vrt_path, gdal.OF_RASTER)
-    if target_dem is None:
-        raise RuntimeError(
-            f"didn't make VRT at {target_vrt_path} on: {zip_path}")
+    if not os.path.exists(target_vrt_path):
+        shutil.unpack_archive(zip_path, unpack_dir)
+        _flatten_dir(unpack_dir)
+        base_raster_path_list = glob.glob(os.path.join(unpack_dir, '*.tif'))
+        vrt_options = gdal.BuildVRTOptions(VRTNodata=target_nodata)
+        gdal.BuildVRT(
+            target_vrt_path, base_raster_path_list, options=vrt_options)
+        target_dem = gdal.OpenEx(target_vrt_path, gdal.OF_RASTER)
+        if target_dem is None:
+            raise RuntimeError(
+                f"didn't make VRT at {target_vrt_path} on: {zip_path}")
 
 
 def _download_and_validate(url, target_path):
@@ -150,11 +151,12 @@ def fetch_data(ecoshard_map, data_dir):
             response = requests.head(value)
             if response:
                 target_path = os.path.join(data_dir, os.path.basename(value))
-                task_graph.add_task(
-                    func=ecoshard.download_url,
-                    args=(value, target_path),
-                    target_path_list=[target_path],
-                    task_name=f'download {value}')
+                if not os.path.exists(target_path):
+                    task_graph.add_task(
+                        func=ecoshard.download_url,
+                        args=(value, target_path),
+                        target_path_list=[target_path],
+                        task_name=f'download {value}')
                 data_map[key] = target_path
             else:
                 LOGGER.warning(f'{key}: {value} does not refer to a url')
@@ -205,7 +207,6 @@ def fetch_and_unpack_data(task_graph):
         _ = task_graph.add_task(
             func=_unpack_archive,
             args=(file_map[compressed_id], data_dir),
-            transient_run=True,
             task_name=f'decompress {file_map[compressed_id]}')
         file_map[compressed_id] = data_dir
     LOGGER.debug('wait for unpack')
