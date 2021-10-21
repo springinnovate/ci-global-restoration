@@ -8,6 +8,7 @@ import os
 import shutil
 import gzip
 
+from inspring import sdr_c_factor
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -49,10 +50,10 @@ LULC_KEY = 'lulc'
 SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
 WATERSHEDS_KEY = 'watersheds'
 WAVES_KEY = 'waves'
-SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'lucode'
+SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
 
 ECOSHARD_MAP = {
-    'ESA_LULC': 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
+    LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     'Scenario1_LULC': 'None',
     SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
     'ndr_biophysical_table': 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
@@ -211,7 +212,6 @@ def fetch_and_unpack_data(task_graph):
         file_map[compressed_id] = data_dir
     LOGGER.debug('wait for unpack')
     task_graph.join()
-    task_graph.close()
 
     # just need the base directory for watersheds
     file_map[WATERSHEDS_KEY] = os.path.join(
@@ -331,6 +331,7 @@ def _batch_into_watershed_subsets(
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
             watershed_path_list.append(watershed_path)
+            break
 
         watershed_layer = None
         watershed_vector = None
@@ -377,13 +378,13 @@ def _run_sdr(
         biophysical_table_path,
         biophysical_table_lucode_field,
         threshold_flow_accumulation,
-        c_factor_path,
         l_cap,
         k_param,
         sdr_max,
         ic_0_param,
         target_stitch_raster_map,
         keep_intermediate_files=False,
+        c_factor_path=None,
         ):
     """Run SDR component of the pipeline.
 
@@ -405,8 +406,6 @@ def _run_sdr(
             the biophysical table column
         threshold_flow_accumulation (float): flow accumulation threshold
             to use to calculate streams.
-        c_factor_path (float): path to c factor that's used for lucodes
-            that use the raster
         l_cap (float): upper limit to the L factor
         k_param (float): k parameter in SDR model
         sdr_max (float): max SDR value
@@ -415,6 +414,8 @@ def _run_sdr(
             raster of this model to an existing global raster to stich into.
         keep_intermediate_files (bool): if True, the intermediate watershed
             workspace created underneath `workspace_dir` is deleted.
+        c_factor_path (str): optional, path to c factor that's used for lucodes
+            that use the raster
 
     Returns:
         None.
@@ -424,8 +425,10 @@ def _run_sdr(
     # stitch the results of whatever outputs to whatever global output raster.
 
     for watershed_path in watershed_path_list:
+        LOGGER.debug(watershed_path)
+        return
         local_workspace_dir = os.path.join(
-            workspace_dir, os.path.splitext(os.path.basen(watershed_path))[0])
+            workspace_dir, os.path.splitext(os.path.basename(watershed_path))[0])
         args = {
             'workspace_dir': local_workspace_dir,
             'dem_path': dem_path,
@@ -442,6 +445,7 @@ def _run_sdr(
             'biophysical_table_lucode_field': biophysical_table_lucode_field,
         }
         LOGGER.debug(args)
+        sdr_c_factor.execute(args)
 
 
 def _run_ndr():
@@ -477,9 +481,11 @@ def main():
     watershed_subset = None
 
     # make sure taskgraph doesn't re-run just because the file was opened
-    watershed_subset_list = (
-        _batch_into_watershed_subsets(
-            data_map[WATERSHEDS_KEY], 10, watershed_subset))
+    watershed_subset_task = task_graph.add_task(
+        func=_batch_into_watershed_subsets,
+        args=(data_map[WATERSHEDS_KEY], 10, watershed_subset),
+        store_result=True)
+    watershed_subset_list = watershed_subset_task.get()
 
     LOGGER.debug(len(watershed_subset_list))
 
@@ -487,24 +493,26 @@ def main():
     }
 
     _run_sdr(
-        SDR_WORKSPACE_DIR,
-        watershed_subset_list,
-        data_map[DEM_KEY],
-        data_map[EROSIVITY_KEY],
-        data_map[ERODIBILITY_KEY],
-        data_map[LULC_KEY],
-        TARGET_PIXEL_SIZE_M,
-        data_map[SDR_BIOPHYSICAL_TABLE_KEY],
-        SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
-        THRESHOLD_FLOW_ACCUMULATION,
-        L_CAP,
-        K_PARAM,
-        SDR_MAX,
-        IC_0_PARAM,
-        sdr_target_stitch_raster_map,
+        workspace_dir=SDR_WORKSPACE_DIR,
+        watershed_path_list=watershed_subset_list,
+        dem_path=data_map[DEM_KEY],
+        erosivity_path=data_map[EROSIVITY_KEY],
+        erodibility_path=data_map[ERODIBILITY_KEY],
+        lulc_path=data_map[LULC_KEY],
+        target_pixel_size=TARGET_PIXEL_SIZE_M,
+        biophysical_table_path=data_map[SDR_BIOPHYSICAL_TABLE_KEY],
+        biophysical_table_lucode_field=SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+        threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
+        l_cap=L_CAP,
+        k_param=K_PARAM,
+        sdr_max=SDR_MAX,
+        ic_0_param=IC_0_PARAM,
+        target_stitch_raster_map=sdr_target_stitch_raster_map,
         keep_intermediate_files=False,
         )
 
+    task_graph.join()
+    task_graph.close()
 
 if __name__ == '__main__':
     main()
