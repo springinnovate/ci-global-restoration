@@ -1,12 +1,15 @@
 """Entry point to manage data and run pipeline."""
 import collections
 import glob
+import gzip
 import itertools
 import logging
 import multiprocessing
 import os
+import queue
 import shutil
-import gzip
+import threading
+import time
 
 from inspring import sdr_c_factor
 from ecoshard import geoprocessing
@@ -33,7 +36,12 @@ LOGGER = logging.getLogger(__name__)
 WORKSPACE_DIR = 'workspace'
 SDR_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'sdr_workspace')
 
+# how many jobs to hold back before calling stitcher
+N_TO_BUFFER_STITCH = 100
+
 TARGET_PIXEL_SIZE_M = 300  # pixel size in m when operating on projected data
+GLOBAL_PIXEL_SIZE_DEG = 10/3600  # 10s resolution
+GLOBAL_BB = [-180, -60, 180, 60]
 
 # These SDR constants are what we used as the defaults in a previous project
 THRESHOLD_FLOW_ACCUMULATION = 1000
@@ -330,7 +338,7 @@ def _batch_into_watershed_subsets(
                         watershed_path, fid_list, epsg, watershed_subset_path),
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
-            watershed_path_list.append(watershed_path)
+            watershed_path_list.append(watershed_subset_path)
             break
 
         watershed_layer = None
@@ -420,21 +428,78 @@ def _run_sdr(
     Returns:
         None.
     """
+    # create global stitch rasters and start workers
+    stitch_raster_queue_map = {}
+    stitch_worker_list = []
+    for local_result_path, global_stitch_raster_path in \
+            target_stitch_raster_map.items():
+        if not os.path.exists(global_stitch_raster_path):
+            driver = gdal.GetDriverByName('GTiff')
+            n_cols = int(GLOBAL_BB[2]-GLOBAL_BB[0]/GLOBAL_PIXEL_SIZE_DEG)
+            n_rows = int(GLOBAL_BB[3]-GLOBAL_BB[1]/GLOBAL_PIXEL_SIZE_DEG)
+            LOGGER.info(f'**** creating raster of size {n_cols} by {n_rows}')
+            target_raster = driver.Create(
+                global_stitch_raster_path,
+                n_cols, n_rows, 1,
+                gdal.GDT_Float32,
+                options=(
+                    'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=LZW',
+                    'SPARSE_OK=TRUE', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'))
+            wgs84_srs = osr.SpatialReference()
+            wgs84_srs.ImportFromEPSG(4326)
+            target_raster.SetProjection(wgs84_srs.ExportToWkt())
+            target_raster.SetGeoTransform(
+                [GLOBAL_BB[0], GLOBAL_PIXEL_SIZE_DEG, 0,
+                 GLOBAL_BB[1], 0, -GLOBAL_PIXEL_SIZE_DEG])
+            target_band = target_raster.GetRasterBand(1)
+            target_band.SetNoDataValue(-9999)
+            target_raster = None
+        stitch_queue = queue.Queue(N_TO_BUFFER_STITCH*2)
+        stitch_thread = threading.Thread(
+            target=stitch_worker,
+            args=(
+                stitch_queue, global_stitch_raster_path,
+                len(watershed_path_list)))
+        stitch_thread.start()
+        stitch_raster_queue_map[local_result_path] = stitch_queue
+        stitch_worker_list.put(stitch_thread)
 
     # Iterate through each watershed subset and run SDR
     # stitch the results of whatever outputs to whatever global output raster.
-
+    base_raster_path_list = [
+        dem_path, erosivity_path, erodibility_path, lulc_path]
+    resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
+    dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
+    LOGGER.debug(dem_pixel_size)
     for watershed_path in watershed_path_list:
-        LOGGER.debug(watershed_path)
-        return
         local_workspace_dir = os.path.join(
-            workspace_dir, os.path.splitext(os.path.basename(watershed_path))[0])
+            workspace_dir, os.path.splitext(
+                os.path.basename(watershed_path))[0])
+        clipped_data_dir = os.path.join(local_workspace_dir, 'data')
+        os.makedirs(clipped_data_dir, exist_ok=True)
+        watershed_info = geoprocessing.get_vector_info(watershed_path)
+        target_projection_wkt = watershed_info['projection_wkt']
+        watershed_bb = watershed_info['bounding_box']
+        lat_lng_bb = geoprocessing.transform_bounding_box(
+            watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
+
+        clipped_raster_path_list = [
+            os.path.join(clipped_data_dir, os.path.basename(path))
+            for path in base_raster_path_list]
+
+        geoprocessing.align_and_resize_raster_stack(
+            base_raster_path_list, clipped_raster_path_list,
+            resample_method_list,
+            dem_pixel_size, lat_lng_bb,
+            target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
+
+        # clip to lat/lng bounding boxes
         args = {
             'workspace_dir': local_workspace_dir,
-            'dem_path': dem_path,
-            'erosivity_path': erosivity_path,
-            'erodibility_path': erodibility_path,
-            'lulc_path': lulc_path,
+            'dem_path': clipped_raster_path_list[0],
+            'erosivity_path': clipped_raster_path_list[1],
+            'erodibility_path': clipped_raster_path_list[2],
+            'lulc_path': clipped_raster_path_list[3],
             'watersheds_path': watershed_path,
             'biophysical_table_path': biophysical_table_path,
             'threshold_flow_accumulation': threshold_flow_accumulation,
@@ -443,9 +508,19 @@ def _run_sdr(
             'ic_0_param': ic_0_param,
             'target_pixel_size': (target_pixel_size, -target_pixel_size),
             'biophysical_table_lucode_field': biophysical_table_lucode_field,
+            'target_projection_wkt': target_projection_wkt,
         }
         LOGGER.debug(args)
         sdr_c_factor.execute(args)
+        for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+            stitch_queue.put(
+                os.path.join(local_workspace_dir, local_result_path))
+    for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+        stitch_queue.put(None)
+    LOGGER.info('all done with SDR, waiting for stitcher to terminate')
+    for stitch_thread in stitch_worker_list:
+        stitch_thread.join()
+    LOGGER.info('all done with SDR -- stitcher terminated')
 
 
 def _run_ndr():
@@ -468,6 +543,62 @@ def _run_coastal_beneficiares():
     pass
 
 
+def stitch_worker(
+        rasters_to_stitch_queue, target_stitch_raster_path, n_expected):
+    """Update the database with completed work.
+
+    Args:
+        rasters_to_stitch_queue (queue): queue that recieves paths to
+            rasters to stitch into target_stitch_raster_path.
+        target_stitch_raster_path (str): path to an existing raster to stitch
+            into.
+
+    Return:
+        ``None``
+    """
+    try:
+        processed_so_far = 0
+        n_buffered = 0
+        start_time = time.time()
+        stitch_buffer_list = []
+        LOGGER.info(f'started stitch worker for {target_stitch_raster_path}')
+        while True:
+            payload = rasters_to_stitch_queue.get()
+            if payload is not None:
+                stitch_buffer_list.append(payload)
+
+            if len(stitch_buffer_list) > N_TO_BUFFER_STITCH or payload is None:
+                LOGGER.info(
+                    f'about to stitch {n_buffered} into '
+                    f'{target_stitch_raster_path}')
+                start_time = time.time()
+                geoprocessing.stitch_rasters(
+                    stitch_buffer_list, ['near']*len(stitch_buffer_list),
+                    (target_stitch_raster_path, 1),
+                    area_weight_m2_to_wgs84=True,
+                    overlap_algorithm='replace')
+
+            processed_so_far += 1
+            jobs_per_sec = processed_so_far / (time.time() - start_time)
+            remaining_time_s = (
+                n_expected / jobs_per_sec)
+            remaining_time_h = int(remaining_time_s // 3600)
+            remaining_time_s -= remaining_time_h * 3600
+            remaining_time_m = int(remaining_time_s // 60)
+            remaining_time_s -= remaining_time_m * 60
+            LOGGER.info(
+                f'remaining jobs to process for {target_stitch_raster_path}: '
+                f'{n_expected-processed_so_far} - '
+                f'processed so far {processed_so_far} - '
+                f'process/sec: {jobs_per_sec:.1f}s - '
+                f'time left: {remaining_time_h}:'
+                f'{remaining_time_m:02d}:{remaining_time_s:04.1f}')
+    except Exception:
+        LOGGER.exception(
+            f'error on stitch worker for {target_stitch_raster_path}')
+        raise
+
+
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
@@ -488,8 +619,13 @@ def main():
     watershed_subset_list = watershed_subset_task.get()
 
     LOGGER.debug(len(watershed_subset_list))
+    LOGGER.debug(watershed_subset_list)
 
     sdr_target_stitch_raster_map = {
+        'sed_export.tif': os.path.join(
+            WORKSPACE_DIR, 'global_sed_export.tif'),
+        'sed_retention.tif': os.path.join(
+            WORKSPACE_DIR, 'global_sed_retention.tif')
     }
 
     _run_sdr(
@@ -513,6 +649,7 @@ def main():
 
     task_graph.join()
     task_graph.close()
+
 
 if __name__ == '__main__':
     main()
