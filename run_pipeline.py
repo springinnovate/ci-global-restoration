@@ -533,8 +533,6 @@ def _run_sdr(
         for local_result_path, stitch_queue in stitch_raster_queue_map.items():
             stitch_queue.put(
                 (os.path.join(local_workspace_dir, local_result_path), 1))
-        if index > 100:
-            break
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(None)
     LOGGER.info('all done with SDR, waiting for stitcher to terminate')
