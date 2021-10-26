@@ -31,6 +31,13 @@ logging.basicConfig(
 logging.getLogger('ecoshard.taskgraph').setLevel(logging.INFO)
 logging.getLogger('ecoshard.ecoshard').setLevel(logging.INFO)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
+logging.getLogger('ecoshard.geoprocessing.geoprocessing').setLevel(
+    logging.ERROR)
+logging.getLogger('ecoshard.geoprocessing.routing.routing').setLevel(
+    logging.WARNING)
+logging.getLogger('ecoshard.geoprocessing.geoprocessing_core').setLevel(
+    logging.ERROR)
+logging.getLogger('inspring.sdr_c_factor').setLevel(logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +47,7 @@ WATERSHED_SUBSET_TOKEN_PATH = os.path.join(
     WORKSPACE_DIR, 'watershed_partition.token')
 
 # how many jobs to hold back before calling stitcher
-N_TO_BUFFER_STITCH = 100
+N_TO_BUFFER_STITCH = 10
 
 TARGET_PIXEL_SIZE_M = 300  # pixel size in m when operating on projected data
 GLOBAL_PIXEL_SIZE_DEG = 10/3600  # 10s resolution
@@ -268,6 +275,7 @@ def _batch_into_watershed_subsets(
     job_id_set = set()
     for watershed_path in glob.glob(
             os.path.join(watershed_root_dir, '*.shp')):
+        LOGGER.debug(f'scheduling {os.path.basename(watershed_path)}')
         subbatch_job_index_map = collections.defaultdict(int)
         # lambda describes the FIDs to process per job, the list of lat/lng
         # bounding boxes for each FID, and the total degree area of the job
@@ -329,7 +337,7 @@ def _batch_into_watershed_subsets(
         for (job_id, epsg), (fid_list, watershed_envelope_list, area) in \
                 sorted(
                     watershed_fid_index.items(), key=lambda x: x[1][-1],
-                    reverse=False):
+                    reverse=True):
             if job_id in job_id_set:
                 raise ValueError(f'{job_id} already processed')
             job_id_set.add(job_id)
@@ -444,8 +452,12 @@ def _run_sdr(
         None.
     """
     # create global stitch rasters and start workers
+    task_graph = taskgraph.TaskGraph(
+        workspace_dir, multiprocessing.cpu_count(), 10)
     stitch_raster_queue_map = {}
     stitch_worker_list = []
+    signal_done_queue = queue.Queue()
+    multiprocessing_manager = multiprocessing.Manager()
     for local_result_path, global_stitch_raster_path in \
             target_stitch_raster_map.items():
         if not os.path.exists(global_stitch_raster_path):
@@ -470,15 +482,22 @@ def _run_sdr(
             target_band = target_raster.GetRasterBand(1)
             target_band.SetNoDataValue(-9999)
             target_raster = None
-        stitch_queue = queue.Queue(N_TO_BUFFER_STITCH*2)
+        stitch_queue = multiprocessing_manager.Queue(N_TO_BUFFER_STITCH*2)
         stitch_thread = threading.Thread(
             target=stitch_worker,
             args=(
                 stitch_queue, global_stitch_raster_path,
-                len(watershed_path_list)))
+                len(watershed_path_list),
+                signal_done_queue))
         stitch_thread.start()
         stitch_raster_queue_map[local_result_path] = stitch_queue
         stitch_worker_list.append(stitch_thread)
+
+    clean_workspace_worker = threading.Thread(
+        target=_clean_workspace_worker,
+        args=(len(target_stitch_raster_map), signal_done_queue))
+    clean_workspace_worker.daemon = True
+    clean_workspace_worker.start()
 
     # Iterate through each watershed subset and run SDR
     # stitch the results of whatever outputs to whatever global output raster.
@@ -528,16 +547,43 @@ def _run_sdr(
             'single_outlet': geoprocessing.get_vector_info(
                 watershed_path)['feature_count'] == 1,
         }
-        sdr_c_factor.execute(args)
-        for local_result_path, stitch_queue in stitch_raster_queue_map.items():
-            stitch_queue.put(
-                (os.path.join(local_workspace_dir, local_result_path), 1))
+        task_graph.add_task(
+            func=_execute_sdr_job,
+            args=(args, stitch_raster_queue_map),
+            task_name=f'sdr {os.path.basename(local_workspace_dir)}')
+
+    LOGGER.info('wait for SDR jobs to complete')
+    task_graph.join()
+    task_graph.close()
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(None)
     LOGGER.info('all done with SDR, waiting for stitcher to terminate')
     for stitch_thread in stitch_worker_list:
         stitch_thread.join()
+    LOGGER.info(
+        'all done with stitching, waiting for workspace worker to terminate')
+    signal_done_queue.put(None)
+    clean_workspace_worker.join()
+
     LOGGER.info('all done with SDR -- stitcher terminated')
+
+
+def _execute_sdr_job(args, stitch_raster_queue_map):
+    """Worker to execute sdr and send signals to stitcher.
+
+    Args:
+        args (dict): SDR argument dict.
+        stitch_raster_queue_map (dict): map of local result path to
+            the stitch queue to signal when job is done.
+
+    Returns:
+        None.
+    """
+    sdr_c_factor.execute(args)
+    for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+        stitch_queue.put(
+            (os.path.join(args['workspace_dir'], local_result_path), 1))
+
 
 
 def _run_ndr():
@@ -560,8 +606,41 @@ def _run_coastal_beneficiares():
     pass
 
 
+def _clean_workspace_worker(expected_signal_count, stitch_done_queue):
+    """Removes workspaces when completed.
+
+    Args:
+        expected_signal_count (int): the number of times to be notified
+            of a done path before it should be deleted.
+        stitch_done_queue (queue): will contain directory paths with the
+            same directory path appearing `expected_signal_count` times,
+            the directory will be removed. Recieving `None` will terminate
+            the process.
+
+    Returns:
+        None
+    """
+    try:
+        count_dict = collections.defaultdict(int)
+        while True:
+            dir_path = stitch_done_queue.get()
+            if dir_path is None:
+                LOGGER.info('recieved None, quitting clean_workspace_worker')
+                return
+            count_dict[dir_path] += 1
+            if count_dict[dir_path] == expected_signal_count:
+                LOGGER.info(
+                    f'removing {dir_path} after {count_dict[dir_path]} '
+                    f'signals')
+                shutil.rmtree(dir_path)
+                del count_dict[dir_path]
+    except Exception:
+        LOGGER.exception('error on clean_workspace_worker')
+
+
 def stitch_worker(
-        rasters_to_stitch_queue, target_stitch_raster_path, n_expected):
+        rasters_to_stitch_queue, target_stitch_raster_path, n_expected,
+        signal_done_queue):
     """Update the database with completed work.
 
     Args:
@@ -569,6 +648,10 @@ def stitch_worker(
             rasters to stitch into target_stitch_raster_path.
         target_stitch_raster_path (str): path to an existing raster to stitch
             into.
+        n_expected (int): number of expected stitch signals
+        signal_done_queue (queue): as each job is complete the directory path
+            to the raster will be passed in to eventually remove.
+
 
     Return:
         ``None``
@@ -594,6 +677,9 @@ def stitch_worker(
                     (target_stitch_raster_path, 1),
                     area_weight_m2_to_wgs84=True,
                     overlap_algorithm='replace')
+                #  _ is the band number
+                for stitch_path, _ in stitch_buffer_list:
+                    signal_done_queue.put(os.path.dirname(stitch_path))
 
             if payload is None:
                 LOGGER.info(f'all done sitching {target_stitch_raster_path}')
