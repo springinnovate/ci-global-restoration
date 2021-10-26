@@ -452,8 +452,8 @@ def _run_sdr(
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
-            n_cols = int(GLOBAL_BB[2]-GLOBAL_BB[0]/GLOBAL_PIXEL_SIZE_DEG)
-            n_rows = int(GLOBAL_BB[3]-GLOBAL_BB[1]/GLOBAL_PIXEL_SIZE_DEG)
+            n_cols = int((GLOBAL_BB[2]-GLOBAL_BB[0])/GLOBAL_PIXEL_SIZE_DEG)
+            n_rows = int((GLOBAL_BB[3]-GLOBAL_BB[1])/GLOBAL_PIXEL_SIZE_DEG)
             LOGGER.info(f'**** creating raster of size {n_cols} by {n_rows}')
             target_raster = driver.Create(
                 global_stitch_raster_path,
@@ -467,7 +467,7 @@ def _run_sdr(
             target_raster.SetProjection(wgs84_srs.ExportToWkt())
             target_raster.SetGeoTransform(
                 [GLOBAL_BB[0], GLOBAL_PIXEL_SIZE_DEG, 0,
-                 GLOBAL_BB[1], 0, -GLOBAL_PIXEL_SIZE_DEG])
+                 GLOBAL_BB[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
             target_band = target_raster.GetRasterBand(1)
             target_band.SetNoDataValue(-9999)
             target_raster = None
@@ -526,8 +526,9 @@ def _run_sdr(
             'target_pixel_size': (target_pixel_size, -target_pixel_size),
             'biophysical_table_lucode_field': biophysical_table_lucode_field,
             'target_projection_wkt': target_projection_wkt,
+            'single_outlet': geoprocessing.get_vector_info(
+                watershed_path)['feature_count'] == 1,
         }
-        LOGGER.debug(args)
         sdr_c_factor.execute(args)
         for local_result_path, stitch_queue in stitch_raster_queue_map.items():
             stitch_queue.put(
@@ -652,7 +653,12 @@ def main():
         'sed_export.tif': os.path.join(
             WORKSPACE_DIR, 'global_sed_export.tif'),
         'sed_retention.tif': os.path.join(
-            WORKSPACE_DIR, 'global_sed_retention.tif')
+            WORKSPACE_DIR, 'global_sed_retention.tif'),
+        'sed_deposition.tif': os.path.join(
+            WORKSPACE_DIR, 'global_sed_deposition.tif'),
+        'usle.tif': os.path.join(
+            WORKSPACE_DIR, 'global_usle.tif'),
+
     }
 
     _run_sdr(
