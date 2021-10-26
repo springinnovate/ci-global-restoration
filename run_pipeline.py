@@ -1,4 +1,5 @@
 """Entry point to manage data and run pipeline."""
+from datetime import datetime
 import collections
 import glob
 import gzip
@@ -35,6 +36,8 @@ LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace'
 SDR_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'sdr_workspace')
+WATERSHED_SUBSET_TOKEN_PATH = os.path.join(
+    WORKSPACE_DIR, 'watershed_partition.token')
 
 # how many jobs to hold back before calling stitcher
 N_TO_BUFFER_STITCH = 100
@@ -232,7 +235,8 @@ def fetch_and_unpack_data(task_graph):
 
 
 def _batch_into_watershed_subsets(
-        watershed_root_dir, degree_separation, watershed_subset=None):
+        watershed_root_dir, degree_separation, done_token_path,
+        watershed_subset=None):
     """Construct geospatially adjacent subsets.
 
     Breaks watersheds up into geospatially similar watersheds and limits
@@ -244,6 +248,8 @@ def _batch_into_watershed_subsets(
         watershed_root_dir (str): path to watershed .shp files.
         degree_separation (int): a blocksize number of degrees to coalasce
             watershed subsets into.
+        done_token_path (str): path to file to write when function is
+            complete, indicates for batching that the task is complete.
         watershed_subset (dict): if not None, keys are watershed basefile
             names and values are FIDs to select. If present the simulation
             only constructs batches from these watershed/fids, otherwise
@@ -339,7 +345,6 @@ def _batch_into_watershed_subsets(
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
             watershed_path_list.append(watershed_subset_path)
-            break
 
         watershed_layer = None
         watershed_vector = None
@@ -347,6 +352,10 @@ def _batch_into_watershed_subsets(
     task_graph.join()
     task_graph.close()
     task_graph = None
+
+    with open(done_token_path, 'w') as token_file:
+        token_file.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
     return watershed_path_list
 
 
@@ -360,6 +369,7 @@ def _create_fid_subset(
     layer.SetAttributeFilter(
         f'"FID" in ('
         f'{", ".join([str(v) for v in fid_list])})')
+    feature_count = layer.GetFeatureCount()
     gpkg_driver = ogr.GetDriverByName('gpkg')
     unprojected_vector_path = '%s_wgs84%s' % os.path.splitext(
         target_vector_path)
@@ -368,11 +378,17 @@ def _create_fid_subset(
         layer, os.path.basename(os.path.splitext(target_vector_path)[0]))
     geoprocessing.reproject_vector(
         unprojected_vector_path, srs.ExportToWkt(), target_vector_path,
-        driver_name='GPKG', copy_fields=False)
+        driver_name='gpkg', copy_fields=False)
     subset_vector = None
     layer = None
     vector = None
     gpkg_driver.DeleteDataSource(unprojected_vector_path)
+    target_vector = gdal.OpenEx(target_vector_path, gdal.OF_VECTOR)
+    target_layer = target_vector.GetLayer()
+    if feature_count != target_layer.GetFeatureCount():
+        raise ValueError(
+            f'expected {feature_count} in {target_vector_path} but got '
+            f'{target_layer.GetFeatureCount()}')
 
 
 def _run_sdr(
@@ -434,6 +450,7 @@ def _run_sdr(
     for local_result_path, global_stitch_raster_path in \
             target_stitch_raster_map.items():
         if not os.path.exists(global_stitch_raster_path):
+            LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
             n_cols = int(GLOBAL_BB[2]-GLOBAL_BB[0]/GLOBAL_PIXEL_SIZE_DEG)
             n_rows = int(GLOBAL_BB[3]-GLOBAL_BB[1]/GLOBAL_PIXEL_SIZE_DEG)
@@ -462,7 +479,7 @@ def _run_sdr(
                 len(watershed_path_list)))
         stitch_thread.start()
         stitch_raster_queue_map[local_result_path] = stitch_queue
-        stitch_worker_list.put(stitch_thread)
+        stitch_worker_list.append(stitch_thread)
 
     # Iterate through each watershed subset and run SDR
     # stitch the results of whatever outputs to whatever global output raster.
@@ -471,7 +488,7 @@ def _run_sdr(
     resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
     LOGGER.debug(dem_pixel_size)
-    for watershed_path in watershed_path_list:
+    for index, watershed_path in enumerate(watershed_path_list):
         local_workspace_dir = os.path.join(
             workspace_dir, os.path.splitext(
                 os.path.basename(watershed_path))[0])
@@ -514,7 +531,9 @@ def _run_sdr(
         sdr_c_factor.execute(args)
         for local_result_path, stitch_queue in stitch_raster_queue_map.items():
             stitch_queue.put(
-                os.path.join(local_workspace_dir, local_result_path))
+                (os.path.join(local_workspace_dir, local_result_path), 1))
+        if index > 100:
+            break
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(None)
     LOGGER.info('all done with SDR, waiting for stitcher to terminate')
@@ -578,6 +597,10 @@ def stitch_worker(
                     area_weight_m2_to_wgs84=True,
                     overlap_algorithm='replace')
 
+            if payload is None:
+                LOGGER.info(f'all done sitching {target_stitch_raster_path}')
+                return
+
             processed_so_far += 1
             jobs_per_sec = processed_so_far / (time.time() - start_time)
             remaining_time_s = (
@@ -614,8 +637,12 @@ def main():
     # make sure taskgraph doesn't re-run just because the file was opened
     watershed_subset_task = task_graph.add_task(
         func=_batch_into_watershed_subsets,
-        args=(data_map[WATERSHEDS_KEY], 10, watershed_subset),
-        store_result=True)
+        args=(
+            data_map[WATERSHEDS_KEY], 10, WATERSHED_SUBSET_TOKEN_PATH,
+            watershed_subset),
+        target_path_list=[WATERSHED_SUBSET_TOKEN_PATH],
+        store_result=True,
+        task_name='watershed subset batch')
     watershed_subset_list = watershed_subset_task.get()
 
     LOGGER.debug(len(watershed_subset_list))
