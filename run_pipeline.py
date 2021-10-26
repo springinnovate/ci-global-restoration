@@ -268,7 +268,6 @@ def _batch_into_watershed_subsets(
     job_id_set = set()
     for watershed_path in glob.glob(
             os.path.join(watershed_root_dir, '*.shp')):
-        LOGGER.debug(f'scheduling {os.path.basename(watershed_path)}')
         subbatch_job_index_map = collections.defaultdict(int)
         # lambda describes the FIDs to process per job, the list of lat/lng
         # bounding boxes for each FID, and the total degree area of the job
