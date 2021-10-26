@@ -163,7 +163,8 @@ def fetch_data(ecoshard_map, data_dir):
             not a url it is copied as-is.
     """
     task_graph = taskgraph.TaskGraph(
-        data_dir, multiprocessing.cpu_count(), parallel_mode='thread')
+        data_dir, multiprocessing.cpu_count(), parallel_mode='thread',
+        taskgraph_name='fetch data')
     data_map = {}
     for key, value in ecoshard_map.items():
         if value.startswith('http'):
@@ -270,7 +271,8 @@ def _batch_into_watershed_subsets(
     """
     # ensures we don't have more than 1000 watersheds per job
     task_graph = taskgraph.TaskGraph(
-        watershed_root_dir, multiprocessing.cpu_count(), 10)
+        watershed_root_dir, multiprocessing.cpu_count(), 10,
+        taskgraph_name='batch watersheds')
     watershed_path_list = []
     job_id_set = set()
     for watershed_path in glob.glob(
@@ -453,11 +455,12 @@ def _run_sdr(
     """
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
-        workspace_dir, multiprocessing.cpu_count(), 10)
+        workspace_dir, multiprocessing.cpu_count(), 10,
+        parallel_mode='thread', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
-    signal_done_queue = queue.Queue()
     multiprocessing_manager = multiprocessing.Manager()
+    signal_done_queue = multiprocessing_manager.Queue()
     for local_result_path, global_stitch_raster_path in \
             target_stitch_raster_map.items():
         if not os.path.exists(global_stitch_raster_path):
@@ -513,6 +516,7 @@ def _run_sdr(
                 threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
                 target_pixel_size, biophysical_table_lucode_field,
                 stitch_raster_queue_map),
+            transient_run=True,
             task_name=f'sdr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for SDR jobs to complete')
@@ -734,7 +738,8 @@ def stitch_worker(
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), parallel_mode='thread')
+        WORKSPACE_DIR, multiprocessing.cpu_count(),
+        parallel_mode='thread', taskgraph_name='run pipeline main')
     data_map = fetch_and_unpack_data(task_graph)
 
     watershed_subset = {
