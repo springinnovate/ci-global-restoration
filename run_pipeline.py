@@ -501,55 +501,18 @@ def _run_sdr(
 
     # Iterate through each watershed subset and run SDR
     # stitch the results of whatever outputs to whatever global output raster.
-    base_raster_path_list = [
-        dem_path, erosivity_path, erodibility_path, lulc_path]
-    resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
-    dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
-    LOGGER.debug(dem_pixel_size)
     for index, watershed_path in enumerate(watershed_path_list):
         local_workspace_dir = os.path.join(
             workspace_dir, os.path.splitext(
                 os.path.basename(watershed_path))[0])
-        clipped_data_dir = os.path.join(local_workspace_dir, 'data')
-        os.makedirs(clipped_data_dir, exist_ok=True)
-        watershed_info = geoprocessing.get_vector_info(watershed_path)
-        target_projection_wkt = watershed_info['projection_wkt']
-        watershed_bb = watershed_info['bounding_box']
-        lat_lng_bb = geoprocessing.transform_bounding_box(
-            watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
-
-        clipped_raster_path_list = [
-            os.path.join(clipped_data_dir, os.path.basename(path))
-            for path in base_raster_path_list]
-
-        geoprocessing.align_and_resize_raster_stack(
-            base_raster_path_list, clipped_raster_path_list,
-            resample_method_list,
-            dem_pixel_size, lat_lng_bb,
-            target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
-
-        # clip to lat/lng bounding boxes
-        args = {
-            'workspace_dir': local_workspace_dir,
-            'dem_path': clipped_raster_path_list[0],
-            'erosivity_path': clipped_raster_path_list[1],
-            'erodibility_path': clipped_raster_path_list[2],
-            'lulc_path': clipped_raster_path_list[3],
-            'watersheds_path': watershed_path,
-            'biophysical_table_path': biophysical_table_path,
-            'threshold_flow_accumulation': threshold_flow_accumulation,
-            'k_param': k_param,
-            'sdr_max': sdr_max,
-            'ic_0_param': ic_0_param,
-            'target_pixel_size': (target_pixel_size, -target_pixel_size),
-            'biophysical_table_lucode_field': biophysical_table_lucode_field,
-            'target_projection_wkt': target_projection_wkt,
-            'single_outlet': geoprocessing.get_vector_info(
-                watershed_path)['feature_count'] == 1,
-        }
         task_graph.add_task(
             func=_execute_sdr_job,
-            args=(args, stitch_raster_queue_map),
+            args=(
+                watershed_path, local_workspace_dir, dem_path, erosivity_path,
+                erodibility_path, lulc_path, biophysical_table_path,
+                threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
+                target_pixel_size, biophysical_table_lucode_field,
+                stitch_raster_queue_map),
             task_name=f'sdr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for SDR jobs to complete')
@@ -568,17 +531,79 @@ def _run_sdr(
     LOGGER.info('all done with SDR -- stitcher terminated')
 
 
-def _execute_sdr_job(args, stitch_raster_queue_map):
+def _execute_sdr_job(
+        watershed_path, local_workspace_dir, dem_path, erosivity_path,
+        erodibility_path, lulc_path, biophysical_table_path,
+        threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
+        target_pixel_size, biophysical_table_lucode_field,
+        stitch_raster_queue_map):
     """Worker to execute sdr and send signals to stitcher.
 
     Args:
-        args (dict): SDR argument dict.
+        watershed_path (str): path to watershed to run model over
+        local_workspace_dir (str): path to local directory
+
+        SDR arguments:
+            dem_path
+            erosivity_path
+            erodibility_path
+            lulc_path
+            biophysical_table_path
+            threshold_flow_accumulation
+            k_param
+            sdr_max
+            ic_0_param
+            target_pixel_size
+            biophysical_table_lucode_field
+
         stitch_raster_queue_map (dict): map of local result path to
             the stitch queue to signal when job is done.
 
     Returns:
         None.
     """
+    dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
+    base_raster_path_list = [
+        dem_path, erosivity_path, erodibility_path, lulc_path]
+    resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
+
+    clipped_data_dir = os.path.join(local_workspace_dir, 'data')
+    os.makedirs(clipped_data_dir, exist_ok=True)
+    watershed_info = geoprocessing.get_vector_info(watershed_path)
+    target_projection_wkt = watershed_info['projection_wkt']
+    watershed_bb = watershed_info['bounding_box']
+    lat_lng_bb = geoprocessing.transform_bounding_box(
+        watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
+
+    clipped_raster_path_list = [
+        os.path.join(clipped_data_dir, os.path.basename(path))
+        for path in base_raster_path_list]
+
+    geoprocessing.align_and_resize_raster_stack(
+        base_raster_path_list, clipped_raster_path_list,
+        resample_method_list,
+        dem_pixel_size, lat_lng_bb,
+        target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
+
+    # clip to lat/lng bounding boxes
+    args = {
+        'workspace_dir': local_workspace_dir,
+        'dem_path': clipped_raster_path_list[0],
+        'erosivity_path': clipped_raster_path_list[1],
+        'erodibility_path': clipped_raster_path_list[2],
+        'lulc_path': clipped_raster_path_list[3],
+        'watersheds_path': watershed_path,
+        'biophysical_table_path': biophysical_table_path,
+        'threshold_flow_accumulation': threshold_flow_accumulation,
+        'k_param': k_param,
+        'sdr_max': sdr_max,
+        'ic_0_param': ic_0_param,
+        'target_pixel_size': (target_pixel_size, -target_pixel_size),
+        'biophysical_table_lucode_field': biophysical_table_lucode_field,
+        'target_projection_wkt': target_projection_wkt,
+        'single_outlet': geoprocessing.get_vector_info(
+            watershed_path)['feature_count'] == 1,
+    }
     sdr_c_factor.execute(args)
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(
