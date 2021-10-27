@@ -7,7 +7,6 @@ import itertools
 import logging
 import multiprocessing
 import os
-import queue
 import shutil
 import threading
 import time
@@ -22,7 +21,7 @@ import ecoshard
 import requests
 
 
-gdal.SetCacheMax(2**30)
+gdal.SetCacheMax(2**27)
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -319,10 +318,10 @@ def _batch_into_watershed_subsets(
                 # on a different boundary
                 job_id = (f'''{base_job_id}_{
                     subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
-                if len(watershed_fid_index[job_id][0]) > 1000:
-                    subbatch_job_index_map[base_job_id] += 1
-                    job_id = (f'''{base_job_id}_{
-                        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
+                #if len(watershed_fid_index[job_id][0]) > 1000:
+                #    subbatch_job_index_map[base_job_id] += 1
+                #    job_id = (f'''{base_job_id}_{
+                #        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
@@ -456,7 +455,7 @@ def _run_sdr(
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
         workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='process', taskgraph_name='sdr processor')
+        parallel_mode='thread', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -753,7 +752,7 @@ def main():
     watershed_subset_task = task_graph.add_task(
         func=_batch_into_watershed_subsets,
         args=(
-            data_map[WATERSHEDS_KEY], 10, WATERSHED_SUBSET_TOKEN_PATH,
+            data_map[WATERSHEDS_KEY], 4, WATERSHED_SUBSET_TOKEN_PATH,
             watershed_subset),
         target_path_list=[WATERSHED_SUBSET_TOKEN_PATH],
         store_result=True,
