@@ -456,7 +456,7 @@ def _run_sdr(
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
         workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='thread', taskgraph_name='sdr processor')
+        parallel_mode='process', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -709,6 +709,7 @@ def stitch_worker(
                 #  _ is the band number
                 for stitch_path, _ in stitch_buffer_list:
                     signal_done_queue.put(os.path.dirname(stitch_path))
+                stitch_buffer_list = []
 
             if payload is None:
                 LOGGER.info(f'all done sitching {target_stitch_raster_path}')
