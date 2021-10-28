@@ -55,6 +55,7 @@ def main():
     parser.add_argument(
         'flip_target_path', type=str,
         help='value to set in lulc raster if prop > flip_prop')
+
     args = parser.parse_args()
 
     flip_basename = os.path.basename(
@@ -90,7 +91,7 @@ def main():
         f'flip values >= {args.flip_proportion} to {args.flip_target_path}')
 
     prob_nodata = geoprocessing.get_raster_info(
-        args.flip_proportion)['nodata'][0]
+        args.probability_path)['nodata'][0]
     task_graph.add_task(
         func=geoprocessing.raster_calculator,
         args=(
