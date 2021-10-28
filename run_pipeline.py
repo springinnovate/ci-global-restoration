@@ -63,15 +63,16 @@ IC_0_PARAM = 0.5
 DEM_KEY = 'dem'
 EROSIVITY_KEY = 'erosivity'
 ERODIBILITY_KEY = 'erodibility'
-LULC_KEY = 'lulc'
+ESA_LULC_KEY = 'esa_lulc'
+SCENARIO_1_LULC_KEY = 'scenario_1_lulc'
 SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
 WATERSHEDS_KEY = 'watersheds'
 WAVES_KEY = 'waves'
 SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
 
 ECOSHARD_MAP = {
-    LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
-    'Scenario1_LULC': 'None',
+    ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
+    SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
     SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
     'ndr_biophysical_table': 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
     DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
@@ -417,6 +418,7 @@ def _run_sdr(
         target_stitch_raster_map,
         keep_intermediate_files=False,
         c_factor_path=None,
+        result_prefix=None,
         ):
     """Run SDR component of the pipeline.
 
@@ -448,6 +450,7 @@ def _run_sdr(
             workspace created underneath `workspace_dir` is deleted.
         c_factor_path (str): optional, path to c factor that's used for lucodes
             that use the raster
+        result_prefix (str): optional, prepended to the global stitch results.
 
     Returns:
         None.
@@ -462,6 +465,10 @@ def _run_sdr(
     signal_done_queue = multiprocessing_manager.Queue()
     for local_result_path, global_stitch_raster_path in \
             target_stitch_raster_map.items():
+        if result_prefix is not None:
+            global_stitch_raster_path = (
+                f'%s_{result_prefix}%s' % os.path.splitext(
+                    global_stitch_raster_path))
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
@@ -791,7 +798,6 @@ def stitch_worker(
                 LOGGER.info(
                     f'about to stitch {n_buffered} into '
                     f'{target_stitch_raster_path}')
-                start_time = time.time()
                 geoprocessing.stitch_rasters(
                     stitch_buffer_list, ['near']*len(stitch_buffer_list),
                     (target_stitch_raster_path, 1),
@@ -865,24 +871,27 @@ def main():
             WORKSPACE_DIR, 'global_usle.tif'),
     }
 
-    _run_sdr(
-        workspace_dir=SDR_WORKSPACE_DIR,
-        watershed_path_list=watershed_subset_list,
-        dem_path=data_map[DEM_KEY],
-        erosivity_path=data_map[EROSIVITY_KEY],
-        erodibility_path=data_map[ERODIBILITY_KEY],
-        lulc_path=data_map[LULC_KEY],
-        target_pixel_size=TARGET_PIXEL_SIZE_M,
-        biophysical_table_path=data_map[SDR_BIOPHYSICAL_TABLE_KEY],
-        biophysical_table_lucode_field=SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
-        threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
-        l_cap=L_CAP,
-        k_param=K_PARAM,
-        sdr_max=SDR_MAX,
-        ic_0_param=IC_0_PARAM,
-        target_stitch_raster_map=sdr_target_stitch_raster_map,
-        keep_intermediate_files=False,
-        )
+    for lulc_key in [SCENARIO_1_LULC_KEY]:
+        sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
+        _run_sdr(
+            workspace_dir=sdr_workspace_dir,
+            watershed_path_list=watershed_subset_list,
+            dem_path=data_map[DEM_KEY],
+            erosivity_path=data_map[EROSIVITY_KEY],
+            erodibility_path=data_map[ERODIBILITY_KEY],
+            lulc_path=data_map[lulc_key],
+            target_pixel_size=TARGET_PIXEL_SIZE_M,
+            biophysical_table_path=data_map[SDR_BIOPHYSICAL_TABLE_KEY],
+            biophysical_table_lucode_field=SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+            threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
+            l_cap=L_CAP,
+            k_param=K_PARAM,
+            sdr_max=SDR_MAX,
+            ic_0_param=IC_0_PARAM,
+            target_stitch_raster_map=sdr_target_stitch_raster_map,
+            keep_intermediate_files=False,
+            result_prefix=lulc_key
+            )
 
     #_run_ndr()
 
