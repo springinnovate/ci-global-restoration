@@ -60,7 +60,6 @@ K_PARAM = 2
 SDR_MAX = 0.8
 IC_0_PARAM = 0.5
 
-
 DEM_KEY = 'dem'
 EROSIVITY_KEY = 'erosivity'
 ERODIBILITY_KEY = 'erodibility'
@@ -70,6 +69,7 @@ SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
 WATERSHEDS_KEY = 'watersheds'
 WAVES_KEY = 'waves'
 SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
+NDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'Value'
 
 ECOSHARD_MAP = {
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
@@ -696,6 +696,7 @@ def _execute_ndr_job(
         'target_projection_wkt': target_projection_wkt,
         'single_outlet': geoprocessing.get_vector_info(
             watershed_path)['feature_count'] == 1,
+        'biophyisical_lucode_fieldname': NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
     }
     ndr_mfd_plus.execute(args)
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
