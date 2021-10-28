@@ -21,7 +21,7 @@ import ecoshard
 import requests
 
 
-gdal.SetCacheMax(2**27)
+gdal.SetCacheMax(2**26)
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -314,14 +314,14 @@ def _batch_into_watershed_subsets(
                     int(v//degree_separation)*degree_separation for v in (
                         watershed_centroid.GetX(), watershed_centroid.GetY())]
                 base_job_id = f'{watershed_basename}_{x}_{y}'
-                # keep the epsg in the string because the centrid might lie
+                # keep the epsg in the string because the centroid might lie
                 # on a different boundary
                 job_id = (f'''{base_job_id}_{
                     subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
-                #if len(watershed_fid_index[job_id][0]) > 1000:
-                #    subbatch_job_index_map[base_job_id] += 1
-                #    job_id = (f'''{base_job_id}_{
-                #        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
+                if len(watershed_fid_index[job_id][0]) > 1000:
+                    subbatch_job_index_map[base_job_id] += 1
+                    job_id = (f'''{base_job_id}_{
+                        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
@@ -356,6 +356,7 @@ def _batch_into_watershed_subsets(
 
         watershed_layer = None
         watershed_vector = None
+        break
 
     task_graph.join()
     task_graph.close()
@@ -771,7 +772,6 @@ def main():
             WORKSPACE_DIR, 'global_sed_deposition.tif'),
         'usle.tif': os.path.join(
             WORKSPACE_DIR, 'global_usle.tif'),
-
     }
 
     _run_sdr(
