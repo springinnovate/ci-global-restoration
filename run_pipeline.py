@@ -457,7 +457,7 @@ def _run_sdr(
     """
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
-        workspace_dir, int(multiprocessing.cpu_count()*.75), 10,
+        workspace_dir, multiprocessing.cpu_count(), 10,
         parallel_mode='process', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
