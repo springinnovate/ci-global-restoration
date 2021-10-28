@@ -12,6 +12,7 @@ import threading
 import time
 
 from inspring import sdr_c_factor
+from inspring import ndr_mfd_plus
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -523,7 +524,7 @@ def _run_sdr(
                 target_pixel_size, biophysical_table_lucode_field,
                 stitch_raster_queue_map),
             transient_run=True,
-            priority=-index, #  make the ones first inserted to be highest priority
+            priority=-index,  # priority in insert order
             task_name=f'sdr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for SDR jobs to complete')
@@ -622,40 +623,46 @@ def _execute_sdr_job(
 
 
 def _execute_ndr_job(
-        watershed_path, local_workspace_dir, dem_path, erosivity_path,
-        erodibility_path, lulc_path, biophysical_table_path,
-        threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
-        target_pixel_size, biophysical_table_lucode_field,
-        stitch_raster_queue_map):
-    """Worker to execute NDR and send signals to stitcher.
+        watershed_path, local_workspace_dir, dem_path, lulc_path,
+        runoff_proxy_path, biophysical_table_path,
+        threshold_flow_accumulation, k_param, target_pixel_size,
+        biophysical_table_lucode_field, stitch_raster_queue_map):
+    """Execute NDR for watershed and push to stitch raster.
 
-    Args:
-        watershed_path (str): path to watershed to run model over
-        local_workspace_dir (str): path to local directory
+        args['workspace_dir'] (string):  path to current workspace
+        args['dem_path'] (string): path to digital elevation map raster
+        args['lulc_path'] (string): a path to landcover map raster
+        args['runoff_proxy_path'] (string): a path to a runoff proxy raster
+        args['watersheds_path'] (string): path to the watershed shapefile
+        args['biophysical_table_path'] (string): path to csv table on disk
+            containing nutrient retention values.
 
-        NDR arguments:
-            dem_path
-            erosivity_path
-            erodibility_path
-            lulc_path
-            biophysical_table_path
-            threshold_flow_accumulation
-            k_param
-            sdr_max
-            ic_0_param
-            target_pixel_size
-            biophysical_table_lucode_field
+            Must contain the following headers:
 
-        stitch_raster_queue_map (dict): map of local result path to
-            the stitch queue to signal when job is done.
+            'load_n', 'eff_n', 'crit_len_n'
 
-    Returns:
-        None.
+        args['results_suffix'] (string): (optional) a text field to append to
+            all output files
+        rgs['fertilizer_path'] (string): path to raster to use for fertlizer
+            rates when biophysical table uses a 'use raster' value for the
+            biophysical table field.
+        args['threshold_flow_accumulation']: a number representing the flow
+            accumulation in terms of upstream pixels.
+        args['k_param'] (number): The Borselli k parameter. This is a
+            calibration parameter that determines the shape of the
+            relationship between hydrologic connectivity.
+        args['target_pixel_size'] (2-tuple): optional, requested target pixel
+            size in local projection coordinate system. If not provided the
+            pixel size is the smallest of all the input rasters.
+        args['target_projection_wkt'] (str): optional, if provided the
+            model is run in this target projection. Otherwise runs in the DEM
+            projection.
+        args['single_outlet'] (str): if True only one drain is modeled, either
+            a large sink or the lowest pixel on the edge of the dem.
     """
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
-    base_raster_path_list = [
-        dem_path, erosivity_path, erodibility_path, lulc_path]
-    resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
+    base_raster_path_list = [dem_path, runoff_proxy_path, lulc_path]
+    resample_method_list = ['bilinear', 'bilinear', 'mode']
 
     clipped_data_dir = os.path.join(local_workspace_dir, 'data')
     os.makedirs(clipped_data_dir, exist_ok=True)
@@ -679,43 +686,21 @@ def _execute_ndr_job(
     args = {
         'workspace_dir': local_workspace_dir,
         'dem_path': clipped_raster_path_list[0],
-        'lulc_path': clipped_raster_path_list[3],
+        'lulc_path': clipped_raster_path_list[2],
+        'runoff_proxy_path': clipped_raster_path_list[1],
         'watersheds_path': watershed_path,
         'biophysical_table_path': biophysical_table_path,
         'threshold_flow_accumulation': threshold_flow_accumulation,
         'k_param': k_param,
-        'sdr_max': sdr_max,
-        'ic_0_param': ic_0_param,
         'target_pixel_size': (target_pixel_size, -target_pixel_size),
-        'biophysical_table_lucode_field': biophysical_table_lucode_field,
         'target_projection_wkt': target_projection_wkt,
         'single_outlet': geoprocessing.get_vector_info(
             watershed_path)['feature_count'] == 1,
     }
-    sdr_c_factor.execute(args)
+    ndr_mfd_plus.execute(args)
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(
             (os.path.join(args['workspace_dir'], local_result_path), 1))
-
-
-def _run_ndr():
-    ndr_plus(
-        watershed_path, watershed_fid,
-        target_cell_length_m,
-        retention_length_m,
-        k_val,
-        flow_threshold,
-        max_pixel_fill_count,
-        routing_algorithm,
-        dem_path,
-        lulc_path,
-        precip_path,
-        custom_load_path,
-        eff_n_lucode_map,
-        load_n_lucode_map,
-        target_export_raster_path,
-        target_modified_load_raster_path,
-        workspace_dir)
 
 
 def _run_cv():
