@@ -523,6 +523,7 @@ def _run_sdr(
                 target_pixel_size, biophysical_table_lucode_field,
                 stitch_raster_queue_map),
             transient_run=True,
+            priority=-index, #  make the ones first inserted to be highest priority
             task_name=f'sdr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for SDR jobs to complete')
