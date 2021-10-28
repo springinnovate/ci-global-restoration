@@ -356,7 +356,6 @@ def _batch_into_watershed_subsets(
 
         watershed_layer = None
         watershed_vector = None
-        break
 
     task_graph.join()
     task_graph.close()
@@ -455,8 +454,8 @@ def _run_sdr(
     """
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
-        workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='thread', taskgraph_name='sdr processor')
+        workspace_dir, int(multiprocessing.cpu_count()*.75), 10,
+        parallel_mode='process', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -614,9 +613,101 @@ def _execute_sdr_job(
             (os.path.join(args['workspace_dir'], local_result_path), 1))
 
 
+def _execute_ndr_job(
+        watershed_path, local_workspace_dir, dem_path, erosivity_path,
+        erodibility_path, lulc_path, biophysical_table_path,
+        threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
+        target_pixel_size, biophysical_table_lucode_field,
+        stitch_raster_queue_map):
+    """Worker to execute NDR and send signals to stitcher.
+
+    Args:
+        watershed_path (str): path to watershed to run model over
+        local_workspace_dir (str): path to local directory
+
+        NDR arguments:
+            dem_path
+            erosivity_path
+            erodibility_path
+            lulc_path
+            biophysical_table_path
+            threshold_flow_accumulation
+            k_param
+            sdr_max
+            ic_0_param
+            target_pixel_size
+            biophysical_table_lucode_field
+
+        stitch_raster_queue_map (dict): map of local result path to
+            the stitch queue to signal when job is done.
+
+    Returns:
+        None.
+    """
+    dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
+    base_raster_path_list = [
+        dem_path, erosivity_path, erodibility_path, lulc_path]
+    resample_method_list = ['bilinear', 'bilinear', 'bilinear', 'mode']
+
+    clipped_data_dir = os.path.join(local_workspace_dir, 'data')
+    os.makedirs(clipped_data_dir, exist_ok=True)
+    watershed_info = geoprocessing.get_vector_info(watershed_path)
+    target_projection_wkt = watershed_info['projection_wkt']
+    watershed_bb = watershed_info['bounding_box']
+    lat_lng_bb = geoprocessing.transform_bounding_box(
+        watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
+
+    clipped_raster_path_list = [
+        os.path.join(clipped_data_dir, os.path.basename(path))
+        for path in base_raster_path_list]
+
+    geoprocessing.align_and_resize_raster_stack(
+        base_raster_path_list, clipped_raster_path_list,
+        resample_method_list,
+        dem_pixel_size, lat_lng_bb,
+        target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
+
+    # clip to lat/lng bounding boxes
+    args = {
+        'workspace_dir': local_workspace_dir,
+        'dem_path': clipped_raster_path_list[0],
+        'lulc_path': clipped_raster_path_list[3],
+        'watersheds_path': watershed_path,
+        'biophysical_table_path': biophysical_table_path,
+        'threshold_flow_accumulation': threshold_flow_accumulation,
+        'k_param': k_param,
+        'sdr_max': sdr_max,
+        'ic_0_param': ic_0_param,
+        'target_pixel_size': (target_pixel_size, -target_pixel_size),
+        'biophysical_table_lucode_field': biophysical_table_lucode_field,
+        'target_projection_wkt': target_projection_wkt,
+        'single_outlet': geoprocessing.get_vector_info(
+            watershed_path)['feature_count'] == 1,
+    }
+    sdr_c_factor.execute(args)
+    for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+        stitch_queue.put(
+            (os.path.join(args['workspace_dir'], local_result_path), 1))
+
 
 def _run_ndr():
-    pass
+    ndr_plus(
+        watershed_path, watershed_fid,
+        target_cell_length_m,
+        retention_length_m,
+        k_val,
+        flow_threshold,
+        max_pixel_fill_count,
+        routing_algorithm,
+        dem_path,
+        lulc_path,
+        precip_path,
+        custom_load_path,
+        eff_n_lucode_map,
+        load_n_lucode_map,
+        target_export_raster_path,
+        target_modified_load_raster_path,
+        workspace_dir)
 
 
 def _run_cv():
@@ -792,6 +883,8 @@ def main():
         target_stitch_raster_map=sdr_target_stitch_raster_map,
         keep_intermediate_files=False,
         )
+
+    #_run_ndr()
 
     task_graph.join()
     task_graph.close()
