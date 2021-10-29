@@ -984,7 +984,7 @@ def main():
     run_sdr = False
     run_ndr = True
 
-    for lulc_key in [SCENARIO_1_LULC_KEY]:
+    for lulc_key in [ESA_LULC_KEY]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
             _run_sdr(
