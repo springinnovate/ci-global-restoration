@@ -973,6 +973,8 @@ def main():
     ndr_target_stitch_raster_map = {
         'n_export.tif': os.path.join(
             WORKSPACE_DIR, 'global_n_export.tif'),
+        'n_retention.tif': os.path.join(
+            WORKSPACE_DIR, 'global_n_retention.tif'),
         os.path.join('intermediate_outputs', 'n_export.tif'): os.path.join(
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
@@ -1013,12 +1015,8 @@ def main():
                 biophysical_table_lucode_field=NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
                 watershed_path_list=watershed_subset_list,
                 dem_path=data_map[DEM_KEY],
-                erosivity_path=data_map[EROSIVITY_KEY],
-                erodibility_path=data_map[ERODIBILITY_KEY],
                 lulc_path=data_map[lulc_key],
                 target_pixel_size=TARGET_PIXEL_SIZE_M,
-                biophysical_table_path=data_map[SDR_BIOPHYSICAL_TABLE_KEY],
-                biophysical_table_lucode_field=SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
                 threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
                 k_param=K_PARAM,
                 target_stitch_raster_map=ndr_target_stitch_raster_map,
