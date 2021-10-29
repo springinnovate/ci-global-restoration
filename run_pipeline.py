@@ -38,6 +38,7 @@ logging.getLogger('ecoshard.geoprocessing.routing.routing').setLevel(
 logging.getLogger('ecoshard.geoprocessing.geoprocessing_core').setLevel(
     logging.ERROR)
 logging.getLogger('inspring.sdr_c_factor').setLevel(logging.WARNING)
+logging.getLogger('inspring.ndr_mfd_plus').setLevel(logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -845,6 +846,7 @@ def _run_ndr(
     task_graph = taskgraph.TaskGraph(
         workspace_dir, multiprocessing.cpu_count(), 10,
         parallel_mode='process', taskgraph_name='ndr processor')
+    #task_graph = taskgraph.TaskGraph(workspace_dir, -1)
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -975,7 +977,7 @@ def main():
             WORKSPACE_DIR, 'global_n_export.tif'),
         'n_retention.tif': os.path.join(
             WORKSPACE_DIR, 'global_n_retention.tif'),
-        os.path.join('intermediate_outputs', 'n_export.tif'): os.path.join(
+        os.path.join('intermediate_outputs', 'modified_load_n.tif'): os.path.join(
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
