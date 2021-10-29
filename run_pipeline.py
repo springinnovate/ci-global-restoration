@@ -941,7 +941,7 @@ def main():
         'af_bas_15s_beta': [19039, 23576, 18994],
         'au_bas_15s_beta': [125804],
         }
-    #watershed_subset = None
+    watershed_subset = None
 
     # make sure taskgraph doesn't re-run just because the file was opened
     watershed_subset_task = task_graph.add_task(
