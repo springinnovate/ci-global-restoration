@@ -67,6 +67,7 @@ EROSIVITY_KEY = 'erosivity'
 ERODIBILITY_KEY = 'erodibility'
 ESA_LULC_KEY = 'esa_lulc'
 SCENARIO_1_LULC_KEY = 'scenario_1_lulc'
+SCENARIO_1_V2_LULC_KEY = 'scenario_1_v2_lulc'
 SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
 WATERSHEDS_KEY = 'watersheds'
 WAVES_KEY = 'waves'
@@ -80,6 +81,7 @@ NDR_BIOPHYSICAL_TABLE_KEY = 'ndr_biophysical_table'
 ECOSHARD_MAP = {
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
+    SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_5530ea58dad595519c69d2ae67d61908.tif',
     SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
     NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
     DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
@@ -984,7 +986,7 @@ def main():
     run_sdr = False
     run_ndr = True
 
-    for lulc_key in [ESA_LULC_KEY]:
+    for lulc_key in [SCENARIO_1_V2_LULC_KEY]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
             _run_sdr(
