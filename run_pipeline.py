@@ -282,7 +282,7 @@ def _batch_into_watershed_subsets(
     task_graph = taskgraph.TaskGraph(
         watershed_root_dir, multiprocessing.cpu_count(), 10,
         taskgraph_name='batch watersheds')
-    watershed_path_list = []
+    watershed_path_area_list = []
     job_id_set = set()
     for watershed_path in glob.glob(
             os.path.join(watershed_root_dir, '*.shp')):
@@ -362,7 +362,8 @@ def _batch_into_watershed_subsets(
                         watershed_path, fid_list, epsg, watershed_subset_path),
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
-            watershed_path_list.append(watershed_subset_path)
+            watershed_path_area_list.append(
+                (watershed_subset_path, area))
 
         watershed_layer = None
         watershed_vector = None
@@ -374,7 +375,9 @@ def _batch_into_watershed_subsets(
     with open(done_token_path, 'w') as token_file:
         token_file.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    return watershed_path_list
+    sorted_watershed_path_list = [
+        path for area, path in sorted(watershed_path_area_list, reverse=True)]
+    return sorted_watershed_path_list
 
 
 def _create_fid_subset(
