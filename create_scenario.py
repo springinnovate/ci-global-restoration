@@ -20,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 def _flip_pixel_proportion(
         base_array, probability_array, flip_target, flip_proportion,
-        probability_nodata, flip_nodata):
+        probability_nodata):
     """Flip pixels in `base_array` to `flip_target` where prob >= prop.
 
     Args:
@@ -31,7 +31,6 @@ def _flip_pixel_proportion(
         flip_proportion (float): in [0, 1] indicates which pixels to flip
             in base if equivalent pixel in probability is >= to this value
         probability_nodata (float): nodata value for the probability array
-        flip_nodata (float): nodata value for flip proportion
 
     Returns:
         numpy.ndarray with pixels flipped where > flip proportion
@@ -39,8 +38,7 @@ def _flip_pixel_proportion(
     result = numpy.copy(base_array)
     flip_mask = (
         (probability_array >= flip_proportion) &
-        (probability_array != probability_nodata) &
-        (flip_proportion != flip_nodata))
+        (probability_array != probability_nodata))
     result[flip_mask] = flip_target[flip_mask]
     return result
 
