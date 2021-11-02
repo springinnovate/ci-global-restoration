@@ -100,7 +100,6 @@ def main():
                 (args.flip_proportion, 'raw'), (prob_nodata, 'raw')],
             _flip_pixel_proportion, target_raster_path,
             lulc_info['datatype'],
-            probability_info['nodata'][0],
             lulc_info['nodata'][0]),
         target_path_list=[target_raster_path],
         dependent_task_list=[align_task],

@@ -22,7 +22,7 @@ import ecoshard
 import requests
 
 
-gdal.SetCacheMax(2**26)
+gdal.SetCacheMax(2**27)
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -81,7 +81,7 @@ NDR_BIOPHYSICAL_TABLE_KEY = 'ndr_biophysical_table'
 ECOSHARD_MAP = {
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
-    SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_5530ea58dad595519c69d2ae67d61908.tif',
+    SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
     SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
     NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
     DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
@@ -105,11 +105,11 @@ ECOSHARD_MAP = {
     'Population': 'https://storage.googleapis.com/ecoshard-root/population/lspop2019_compressed_md5_d0bf03bd0a2378196327bbe6e898b70c.tif',
     'Friction surface': 'https://storage.googleapis.com/ecoshard-root/critical_natural_capital/friction_surface_2015_v1.0-002_md5_166d17746f5dd49cfb2653d721c2267c.tif',
     'World borders': 'https://storage.googleapis.com/ecoshard-root/critical_natural_capital/TM_WORLD_BORDERS-0.3_simplified_md5_47f2059be8d4016072aa6abe77762021.gpkg',
-    'Habitat mask ESA': '(need to make from LULC above)',
-    'Habitat mask Scenario1': '(need to make from LULC above)',
-    'Coastal population': '(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
-    'Coastal habitat masks ESA': '(will be outputs of CV)',
-    'Coastal habitat masks Scenario 1': '(will be outputs of CV)',
+    #'Habitat mask ESA': '(need to make from LULC above)',
+    #'Habitat mask Scenario1': '(need to make from LULC above)',
+    #'Coastal population': '(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
+    #'Coastal habitat masks ESA': '(will be outputs of CV)',
+    #'Coastal habitat masks Scenario 1': '(will be outputs of CV)',
     }
 
 
@@ -987,8 +987,8 @@ def main():
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
-    run_sdr = False
-    run_ndr = True
+    run_sdr = True
+    #run_ndr = True
 
     for lulc_key in [SCENARIO_1_V2_LULC_KEY]:
         if run_sdr:
