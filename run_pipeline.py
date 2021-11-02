@@ -363,7 +363,7 @@ def _batch_into_watershed_subsets(
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
             watershed_path_area_list.append(
-                (watershed_subset_path, area))
+                (area, watershed_subset_path))
 
         watershed_layer = None
         watershed_vector = None
@@ -372,9 +372,10 @@ def _batch_into_watershed_subsets(
     task_graph.close()
     task_graph = None
 
+    # create a global sorted watershed path list so it's sorted by area overall
+    # not just by region per area
     with open(done_token_path, 'w') as token_file:
         token_file.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
     sorted_watershed_path_list = [
         path for area, path in sorted(watershed_path_area_list, reverse=True)]
     return sorted_watershed_path_list
