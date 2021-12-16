@@ -12,6 +12,7 @@ import threading
 import time
 
 from inspring import sdr_c_factor
+from inspring import ndr_mfd_plus
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -37,11 +38,13 @@ logging.getLogger('ecoshard.geoprocessing.routing.routing').setLevel(
 logging.getLogger('ecoshard.geoprocessing.geoprocessing_core').setLevel(
     logging.ERROR)
 logging.getLogger('inspring.sdr_c_factor').setLevel(logging.WARNING)
+logging.getLogger('inspring.ndr_mfd_plus').setLevel(logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace'
 SDR_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'sdr_workspace')
+NDR_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'ndr_workspace')
 WATERSHED_SUBSET_TOKEN_PATH = os.path.join(
     WORKSPACE_DIR, 'watershed_partition.token')
 
@@ -59,27 +62,39 @@ K_PARAM = 2
 SDR_MAX = 0.8
 IC_0_PARAM = 0.5
 
-
 DEM_KEY = 'dem'
 EROSIVITY_KEY = 'erosivity'
 ERODIBILITY_KEY = 'erodibility'
-LULC_KEY = 'lulc'
+ESA_LULC_KEY = 'esa_lulc'
+SCENARIO_1_LULC_KEY = 'scenario_1_lulc'
+SCENARIO_1_V2_LULC_KEY = 'scenario_1_v2_lulc'
 SDR_BIOPHYSICAL_TABLE_KEY = 'sdr_biophysical_table'
 WATERSHEDS_KEY = 'watersheds'
 WAVES_KEY = 'waves'
 SDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
+NDR_BIOPHYSICAL_TABLE_LUCODE_KEY = 'Value'
+
+RUNOFF_PROXY_KEY = 'Precipitation'
+FERTILZER_KEY = 'Fertilizer'
+NDR_BIOPHYSICAL_TABLE_KEY = 'ndr_biophysical_table'
+LULC_MODVCFTREE1KM_KEY = 'esa_modVCFTree1km'
+MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY = 'tree1km_biophysical_table'
+MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
 
 ECOSHARD_MAP = {
-    LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
-    'Scenario1_LULC': 'None',
+    LULC_MODVCFTREE1KM_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif',
+    MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_md5_35e04d6b9e56e85e81c35b5186572852.csv',
+    ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
+    SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
+    SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
     SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
-    'ndr_biophysical_table': 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
+    NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
     DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
     EROSIVITY_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
     ERODIBILITY_KEY: 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
     WATERSHEDS_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
-    'Precipitation': 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/worldclim_2015_md5_16356b3770460a390de7e761a27dbfa1.tif',
-    'Fertilizer': 'https://storage.googleapis.com/nci-ecoshards/scenarios050420/NCI_Ext_RevB_add_backgroundN_md5_e4a9cc537cd0092d346e4287e7bd4c36.tif',
+    RUNOFF_PROXY_KEY: 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/worldclim_2015_md5_16356b3770460a390de7e761a27dbfa1.tif',
+    FERTILZER_KEY: 'https://storage.googleapis.com/nci-ecoshards/scenarios050420/NCI_Ext_RevB_add_backgroundN_md5_e4a9cc537cd0092d346e4287e7bd4c36.tif',
     'Global polygon': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/ipbes-cv_global_polygon_simplified_geometries_md5_653118dde775057e24de52542b01eaee.gpkg',
     'Buffered shore': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/buffered_global_shore_5km_md5_a68e1049c1c03673add014cd29b7b368.gpkg',
     'Shore grid': 'https://storage.googleapis.com/critical-natural-capital-ecoshards/cv_layers/shore_grid_md5_07aea173cf373474c096f1d5e3463c2f.gpkg',
@@ -95,11 +110,11 @@ ECOSHARD_MAP = {
     'Population': 'https://storage.googleapis.com/ecoshard-root/population/lspop2019_compressed_md5_d0bf03bd0a2378196327bbe6e898b70c.tif',
     'Friction surface': 'https://storage.googleapis.com/ecoshard-root/critical_natural_capital/friction_surface_2015_v1.0-002_md5_166d17746f5dd49cfb2653d721c2267c.tif',
     'World borders': 'https://storage.googleapis.com/ecoshard-root/critical_natural_capital/TM_WORLD_BORDERS-0.3_simplified_md5_47f2059be8d4016072aa6abe77762021.gpkg',
-    'Habitat mask ESA': '(need to make from LULC above)',
-    'Habitat mask Scenario1': '(need to make from LULC above)',
-    'Coastal population': '(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
-    'Coastal habitat masks ESA': '(will be outputs of CV)',
-    'Coastal habitat masks Scenario 1': '(will be outputs of CV)',
+    #'Habitat mask ESA': '(need to make from LULC above)',
+    #'Habitat mask Scenario1': '(need to make from LULC above)',
+    #'Coastal population': '(need to make from population above and this mask: https://storage.googleapis.com/ecoshard-root/ipbes-cv/total_pop_masked_by_10m_md5_ef02b7ee48fa100f877e3a1671564be2.tif)',
+    #'Coastal habitat masks ESA': '(will be outputs of CV)',
+    #'Coastal habitat masks Scenario 1': '(will be outputs of CV)',
     }
 
 
@@ -272,7 +287,7 @@ def _batch_into_watershed_subsets(
     task_graph = taskgraph.TaskGraph(
         watershed_root_dir, multiprocessing.cpu_count(), 10,
         taskgraph_name='batch watersheds')
-    watershed_path_list = []
+    watershed_path_area_list = []
     job_id_set = set()
     for watershed_path in glob.glob(
             os.path.join(watershed_root_dir, '*.shp')):
@@ -314,14 +329,14 @@ def _batch_into_watershed_subsets(
                     int(v//degree_separation)*degree_separation for v in (
                         watershed_centroid.GetX(), watershed_centroid.GetY())]
                 base_job_id = f'{watershed_basename}_{x}_{y}'
-                # keep the epsg in the string because the centrid might lie
+                # keep the epsg in the string because the centroid might lie
                 # on a different boundary
                 job_id = (f'''{base_job_id}_{
                     subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
-                #if len(watershed_fid_index[job_id][0]) > 1000:
-                #    subbatch_job_index_map[base_job_id] += 1
-                #    job_id = (f'''{base_job_id}_{
-                #        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
+                if len(watershed_fid_index[job_id][0]) > 1000:
+                    subbatch_job_index_map[base_job_id] += 1
+                    job_id = (f'''{base_job_id}_{
+                        subbatch_job_index_map[base_job_id]}_{epsg}''', epsg)
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
@@ -352,7 +367,8 @@ def _batch_into_watershed_subsets(
                         watershed_path, fid_list, epsg, watershed_subset_path),
                     target_path_list=[watershed_subset_path],
                     task_name=job_id)
-            watershed_path_list.append(watershed_subset_path)
+            watershed_path_area_list.append(
+                (area, watershed_subset_path))
 
         watershed_layer = None
         watershed_vector = None
@@ -361,10 +377,13 @@ def _batch_into_watershed_subsets(
     task_graph.close()
     task_graph = None
 
+    # create a global sorted watershed path list so it's sorted by area overall
+    # not just by region per area
     with open(done_token_path, 'w') as token_file:
         token_file.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-    return watershed_path_list
+    sorted_watershed_path_list = [
+        path for area, path in sorted(watershed_path_area_list, reverse=True)]
+    return sorted_watershed_path_list
 
 
 def _create_fid_subset(
@@ -417,6 +436,7 @@ def _run_sdr(
         target_stitch_raster_map,
         keep_intermediate_files=False,
         c_factor_path=None,
+        result_prefix=None,
         ):
     """Run SDR component of the pipeline.
 
@@ -448,6 +468,7 @@ def _run_sdr(
             workspace created underneath `workspace_dir` is deleted.
         c_factor_path (str): optional, path to c factor that's used for lucodes
             that use the raster
+        result_prefix (str): optional, prepended to the global stitch results.
 
     Returns:
         None.
@@ -455,13 +476,17 @@ def _run_sdr(
     # create global stitch rasters and start workers
     task_graph = taskgraph.TaskGraph(
         workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='thread', taskgraph_name='sdr processor')
+        parallel_mode='process', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
     signal_done_queue = multiprocessing_manager.Queue()
     for local_result_path, global_stitch_raster_path in \
             target_stitch_raster_map.items():
+        if result_prefix is not None:
+            global_stitch_raster_path = (
+                f'%s_{result_prefix}%s' % os.path.splitext(
+                    global_stitch_raster_path))
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
@@ -516,6 +541,7 @@ def _run_sdr(
                 target_pixel_size, biophysical_table_lucode_field,
                 stitch_raster_queue_map),
             transient_run=True,
+            priority=-index,  # priority in insert order
             task_name=f'sdr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for SDR jobs to complete')
@@ -613,9 +639,88 @@ def _execute_sdr_job(
             (os.path.join(args['workspace_dir'], local_result_path), 1))
 
 
+def _execute_ndr_job(
+        watershed_path, local_workspace_dir, dem_path, lulc_path,
+        runoff_proxy_path, fertilizer_path, biophysical_table_path,
+        threshold_flow_accumulation, k_param, target_pixel_size,
+        biophysical_table_lucode_field, stitch_raster_queue_map):
+    """Execute NDR for watershed and push to stitch raster.
 
-def _run_ndr():
-    pass
+        args['workspace_dir'] (string):  path to current workspace
+        args['dem_path'] (string): path to digital elevation map raster
+        args['lulc_path'] (string): a path to landcover map raster
+        args['runoff_proxy_path'] (string): a path to a runoff proxy raster
+        args['watersheds_path'] (string): path to the watershed shapefile
+        args['biophysical_table_path'] (string): path to csv table on disk
+            containing nutrient retention values.
+
+            Must contain the following headers:
+
+            'load_n', 'eff_n', 'crit_len_n'
+
+        args['results_suffix'] (string): (optional) a text field to append to
+            all output files
+        rgs['fertilizer_path'] (string): path to raster to use for fertlizer
+            rates when biophysical table uses a 'use raster' value for the
+            biophysical table field.
+        args['threshold_flow_accumulation']: a number representing the flow
+            accumulation in terms of upstream pixels.
+        args['k_param'] (number): The Borselli k parameter. This is a
+            calibration parameter that determines the shape of the
+            relationship between hydrologic connectivity.
+        args['target_pixel_size'] (2-tuple): optional, requested target pixel
+            size in local projection coordinate system. If not provided the
+            pixel size is the smallest of all the input rasters.
+        args['target_projection_wkt'] (str): optional, if provided the
+            model is run in this target projection. Otherwise runs in the DEM
+            projection.
+        args['single_outlet'] (str): if True only one drain is modeled, either
+            a large sink or the lowest pixel on the edge of the dem.
+    """
+    dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
+    base_raster_path_list = [
+        dem_path, runoff_proxy_path, lulc_path, fertilizer_path]
+    resample_method_list = ['bilinear', 'bilinear', 'mode', 'bilinear']
+
+    clipped_data_dir = os.path.join(local_workspace_dir, 'data')
+    os.makedirs(clipped_data_dir, exist_ok=True)
+    watershed_info = geoprocessing.get_vector_info(watershed_path)
+    target_projection_wkt = watershed_info['projection_wkt']
+    watershed_bb = watershed_info['bounding_box']
+    lat_lng_bb = geoprocessing.transform_bounding_box(
+        watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
+
+    clipped_raster_path_list = [
+        os.path.join(clipped_data_dir, os.path.basename(path))
+        for path in base_raster_path_list]
+
+    geoprocessing.align_and_resize_raster_stack(
+        base_raster_path_list, clipped_raster_path_list,
+        resample_method_list,
+        dem_pixel_size, lat_lng_bb,
+        target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
+
+    # clip to lat/lng bounding boxes
+    args = {
+        'workspace_dir': local_workspace_dir,
+        'dem_path': clipped_raster_path_list[0],
+        'runoff_proxy_path': clipped_raster_path_list[1],
+        'lulc_path': clipped_raster_path_list[2],
+        'fertilizer_path': clipped_raster_path_list[3],
+        'watersheds_path': watershed_path,
+        'biophysical_table_path': biophysical_table_path,
+        'threshold_flow_accumulation': threshold_flow_accumulation,
+        'k_param': k_param,
+        'target_pixel_size': (target_pixel_size, -target_pixel_size),
+        'target_projection_wkt': target_projection_wkt,
+        'single_outlet': geoprocessing.get_vector_info(
+            watershed_path)['feature_count'] == 1,
+        'biophyisical_lucode_fieldname': NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+    }
+    ndr_mfd_plus.execute(args)
+    for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+        stitch_queue.put(
+            (os.path.join(args['workspace_dir'], local_result_path), 1))
 
 
 def _run_cv():
@@ -699,7 +804,6 @@ def stitch_worker(
                 LOGGER.info(
                     f'about to stitch {n_buffered} into '
                     f'{target_stitch_raster_path}')
-                start_time = time.time()
                 geoprocessing.stitch_rasters(
                     stitch_buffer_list, ['near']*len(stitch_buffer_list),
                     (target_stitch_raster_path, 1),
@@ -735,6 +839,108 @@ def stitch_worker(
         raise
 
 
+def _run_ndr(
+        workspace_dir,
+        watershed_path_list,
+        dem_path,
+        runoff_proxy_path,
+        fertilizer_path,
+        lulc_path,
+        target_pixel_size,
+        biophysical_table_path,
+        biophysical_table_lucode_field,
+        threshold_flow_accumulation,
+        k_param,
+        target_stitch_raster_map,
+        keep_intermediate_files=False,
+        result_prefix=None,):
+    task_graph = taskgraph.TaskGraph(
+        workspace_dir, multiprocessing.cpu_count(), 10,
+        parallel_mode='process', taskgraph_name='ndr processor')
+    #task_graph = taskgraph.TaskGraph(workspace_dir, -1)
+    stitch_raster_queue_map = {}
+    stitch_worker_list = []
+    multiprocessing_manager = multiprocessing.Manager()
+    signal_done_queue = multiprocessing_manager.Queue()
+    for local_result_path, global_stitch_raster_path in \
+            target_stitch_raster_map.items():
+        if result_prefix is not None:
+            global_stitch_raster_path = (
+                f'%s_{result_prefix}%s' % os.path.splitext(
+                    global_stitch_raster_path))
+        if not os.path.exists(global_stitch_raster_path):
+            LOGGER.info(f'creating {global_stitch_raster_path}')
+            driver = gdal.GetDriverByName('GTiff')
+            n_cols = int((GLOBAL_BB[2]-GLOBAL_BB[0])/GLOBAL_PIXEL_SIZE_DEG)
+            n_rows = int((GLOBAL_BB[3]-GLOBAL_BB[1])/GLOBAL_PIXEL_SIZE_DEG)
+            LOGGER.info(f'**** creating raster of size {n_cols} by {n_rows}')
+            target_raster = driver.Create(
+                global_stitch_raster_path,
+                n_cols, n_rows, 1,
+                gdal.GDT_Float32,
+                options=(
+                    'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=LZW',
+                    'SPARSE_OK=TRUE', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256'))
+            wgs84_srs = osr.SpatialReference()
+            wgs84_srs.ImportFromEPSG(4326)
+            target_raster.SetProjection(wgs84_srs.ExportToWkt())
+            target_raster.SetGeoTransform(
+                [GLOBAL_BB[0], GLOBAL_PIXEL_SIZE_DEG, 0,
+                 GLOBAL_BB[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
+            target_band = target_raster.GetRasterBand(1)
+            target_band.SetNoDataValue(-9999)
+            target_raster = None
+        stitch_queue = multiprocessing_manager.Queue(N_TO_BUFFER_STITCH*2)
+        stitch_thread = threading.Thread(
+            target=stitch_worker,
+            args=(
+                stitch_queue, global_stitch_raster_path,
+                len(watershed_path_list),
+                signal_done_queue))
+        stitch_thread.start()
+        stitch_raster_queue_map[local_result_path] = stitch_queue
+        stitch_worker_list.append(stitch_thread)
+
+    clean_workspace_worker = threading.Thread(
+        target=_clean_workspace_worker,
+        args=(len(target_stitch_raster_map), signal_done_queue))
+    clean_workspace_worker.daemon = True
+    clean_workspace_worker.start()
+
+    # Iterate through each watershed subset and run ndr
+    # stitch the results of whatever outputs to whatever global output raster.
+    for index, watershed_path in enumerate(watershed_path_list):
+        local_workspace_dir = os.path.join(
+            workspace_dir, os.path.splitext(
+                os.path.basename(watershed_path))[0])
+        task_graph.add_task(
+            func=_execute_ndr_job,
+            args=(
+                watershed_path, local_workspace_dir, dem_path, lulc_path,
+                runoff_proxy_path, fertilizer_path, biophysical_table_path,
+                threshold_flow_accumulation, k_param, target_pixel_size,
+                biophysical_table_lucode_field, stitch_raster_queue_map),
+            transient_run=True,
+            priority=-index,  # priority in insert order
+            task_name=f'ndr {os.path.basename(local_workspace_dir)}')
+
+    LOGGER.info('wait for ndr jobs to complete')
+    task_graph.join()
+    task_graph.close()
+    for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+        stitch_queue.put(None)
+    LOGGER.info('all done with ndr, waiting for stitcher to terminate')
+    for stitch_thread in stitch_worker_list:
+        stitch_thread.join()
+    LOGGER.info(
+        'all done with stitching, waiting for workspace worker to terminate')
+    signal_done_queue.put(None)
+    clean_workspace_worker.join()
+
+    LOGGER.info('all done with ndr -- stitcher terminated')
+
+
+
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
@@ -759,6 +965,10 @@ def main():
         task_name='watershed subset batch')
     watershed_subset_list = watershed_subset_task.get()
 
+    task_graph.join()
+    task_graph.close()
+    task_graph = None
+
     LOGGER.debug(len(watershed_subset_list))
     LOGGER.debug(watershed_subset_list)
 
@@ -771,30 +981,61 @@ def main():
             WORKSPACE_DIR, 'global_sed_deposition.tif'),
         'usle.tif': os.path.join(
             WORKSPACE_DIR, 'global_usle.tif'),
-
     }
 
-    _run_sdr(
-        workspace_dir=SDR_WORKSPACE_DIR,
-        watershed_path_list=watershed_subset_list,
-        dem_path=data_map[DEM_KEY],
-        erosivity_path=data_map[EROSIVITY_KEY],
-        erodibility_path=data_map[ERODIBILITY_KEY],
-        lulc_path=data_map[LULC_KEY],
-        target_pixel_size=TARGET_PIXEL_SIZE_M,
-        biophysical_table_path=data_map[SDR_BIOPHYSICAL_TABLE_KEY],
-        biophysical_table_lucode_field=SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
-        threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
-        l_cap=L_CAP,
-        k_param=K_PARAM,
-        sdr_max=SDR_MAX,
-        ic_0_param=IC_0_PARAM,
-        target_stitch_raster_map=sdr_target_stitch_raster_map,
-        keep_intermediate_files=False,
-        )
+    ndr_target_stitch_raster_map = {
+        'n_export.tif': os.path.join(
+            WORKSPACE_DIR, 'global_n_export.tif'),
+        'n_retention.tif': os.path.join(
+            WORKSPACE_DIR, 'global_n_retention.tif'),
+        os.path.join('intermediate_outputs', 'modified_load_n.tif'): os.path.join(
+            WORKSPACE_DIR, 'global_modified_load_n.tif'),
+    }
 
-    task_graph.join()
-    task_graph.close()
+    run_sdr = True
+    run_ndr = True
+
+    for lulc_key in [LULC_MODVCFTREE1KM_KEY]: #SCENARIO_1_V2_LULC_KEY]:
+        if run_sdr:
+            sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
+            _run_sdr(
+                workspace_dir=sdr_workspace_dir,
+                watershed_path_list=watershed_subset_list,
+                dem_path=data_map[DEM_KEY],
+                erosivity_path=data_map[EROSIVITY_KEY],
+                erodibility_path=data_map[ERODIBILITY_KEY],
+                lulc_path=data_map[lulc_key],
+                target_pixel_size=TARGET_PIXEL_SIZE_M,
+                biophysical_table_path=data_map[MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY], #data_map[SDR_BIOPHYSICAL_TABLE_KEY],
+                biophysical_table_lucode_field=MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY, #SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+                threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
+                l_cap=L_CAP,
+                k_param=K_PARAM,
+                sdr_max=SDR_MAX,
+                ic_0_param=IC_0_PARAM,
+                target_stitch_raster_map=sdr_target_stitch_raster_map,
+                keep_intermediate_files=False,
+                result_prefix=lulc_key,
+                )
+
+        if run_ndr:
+            ndr_workspace_dir = os.path.join(NDR_WORKSPACE_DIR, lulc_key)
+            _run_ndr(
+                workspace_dir=ndr_workspace_dir,
+                runoff_proxy_path=data_map[RUNOFF_PROXY_KEY],
+                fertilizer_path=data_map[FERTILZER_KEY],
+                biophysical_table_path=data_map[MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY], #NDR_BIOPHYSICAL_TABLE_KEY],
+                biophysical_table_lucode_field=MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY, #NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+                watershed_path_list=watershed_subset_list,
+                dem_path=data_map[DEM_KEY],
+                lulc_path=data_map[lulc_key],
+                target_pixel_size=TARGET_PIXEL_SIZE_M,
+                threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
+                k_param=K_PARAM,
+                target_stitch_raster_map=ndr_target_stitch_raster_map,
+                keep_intermediate_files=False,
+                result_prefix=lulc_key,
+                )
 
 
 if __name__ == '__main__':
