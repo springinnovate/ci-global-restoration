@@ -83,7 +83,7 @@ MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
 
 ECOSHARD_MAP = {
     LULC_MODVCFTREE1KM_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif',
-    MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_md5_35e04d6b9e56e85e81c35b5186572852.csv',
+    MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_0a2a8d33f8a3dcb44b7f2c52e9d1ca3d.csv',
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
     SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
