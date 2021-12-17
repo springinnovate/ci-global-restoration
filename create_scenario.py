@@ -78,9 +78,9 @@ def main():
     lulc_info = geoprocessing.get_raster_info(args.lulc_path)
     probability_info = geoprocessing.get_raster_info(args.probability_path)
 
-    LOGGER.info('align raster stack')
+    LOGGER.info(f'align raster stack {lulc_info["pixel_size"]}')
     align_task = task_graph.add_task(
-        func=geoprocessing.warp_raster,
+        func=geoprocessing.align_and_resize_raster_stack,
         args=(
             base_raster_path_list,
             aligned_raster_path_list, ['mode', 'average', 'mode'],
