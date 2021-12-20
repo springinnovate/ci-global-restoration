@@ -22,12 +22,13 @@ import ecoshard
 import requests
 
 
-gdal.SetCacheMax(2**27)
+gdal.SetCacheMax(2**26)
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
-        ' [%(funcName)s:%(lineno)d] %(message)s'))
+        ' [%(funcName)s:%(lineno)d] %(message)s'),
+    filename='sdrndrlog.txt')
 logging.getLogger('ecoshard.taskgraph').setLevel(logging.INFO)
 logging.getLogger('ecoshard.ecoshard').setLevel(logging.INFO)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
@@ -80,6 +81,10 @@ NDR_BIOPHYSICAL_TABLE_KEY = 'ndr_biophysical_table'
 LULC_MODVCFTREE1KM_KEY = 'esa_modVCFTree1km'
 MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY = 'tree1km_biophysical_table'
 MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
+
+SKIP_TASK_SET = {
+    'sdr au_bas_15s_beta_176_-20_1_32760_a0.189'
+}
 
 ECOSHARD_MAP = {
     LULC_MODVCFTREE1KM_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif',
@@ -532,6 +537,9 @@ def _run_sdr(
         local_workspace_dir = os.path.join(
             workspace_dir, os.path.splitext(
                 os.path.basename(watershed_path))[0])
+        task_name = f'sdr {os.path.basename(local_workspace_dir)}'
+        if task_name in SKIP_TASK_SET:
+            continue
         task_graph.add_task(
             func=_execute_sdr_job,
             args=(
@@ -542,7 +550,7 @@ def _run_sdr(
                 stitch_raster_queue_map),
             transient_run=True,
             priority=-index,  # priority in insert order
-            task_name=f'sdr {os.path.basename(local_workspace_dir)}')
+            task_name=task_name)
 
     LOGGER.info('wait for SDR jobs to complete')
     task_graph.join()
