@@ -724,6 +724,7 @@ def _execute_ndr_job(
         'single_outlet': geoprocessing.get_vector_info(
             watershed_path)['feature_count'] == 1,
         'biophyisical_lucode_fieldname': biophysical_table_lucode_field,
+        'crit_len_n': 150.0,
     }
     ndr_mfd_plus.execute(args)
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
