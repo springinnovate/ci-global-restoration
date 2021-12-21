@@ -83,7 +83,7 @@ MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY = 'tree1km_biophysical_table'
 MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
 
 SKIP_TASK_SET = {
-    'sdr au_bas_15s_beta_176_-20_1_32760_a0.189'
+    'sdr au_bas_15s_beta_176_'
 }
 
 ECOSHARD_MAP = {
@@ -538,7 +538,7 @@ def _run_sdr(
             workspace_dir, os.path.splitext(
                 os.path.basename(watershed_path))[0])
         task_name = f'sdr {os.path.basename(local_workspace_dir)}'
-        if task_name in SKIP_TASK_SET:
+        if any([sub in task_name for sub in SKIP_TASK_SET]):
             continue
         task_graph.add_task(
             func=_execute_sdr_job,
@@ -723,7 +723,7 @@ def _execute_ndr_job(
         'target_projection_wkt': target_projection_wkt,
         'single_outlet': geoprocessing.get_vector_info(
             watershed_path)['feature_count'] == 1,
-        'biophyisical_lucode_fieldname': NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+        'biophyisical_lucode_fieldname': biophysical_table_lucode_field,
     }
     ndr_mfd_plus.execute(args)
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
