@@ -80,20 +80,34 @@ FERTILZER_KEY = 'Fertilizer'
 NDR_BIOPHYSICAL_TABLE_KEY = 'ndr_biophysical_table'
 LULC_MODVCFTREE1KM_KEY = 'esa_modVCFTree1km'
 MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY = 'tree1km_biophysical_table'
-MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY = 'ID'
+MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_ID = 'ID'
 
 SKIP_TASK_SET = {
     'sdr au_bas_15s_beta_176_'
 }
 
+SCENARIO_2_V3_LULC_KEY = 'Sc2v3_Griscom_CookPatton2050_smithpnv'
+SCENARIO_2_V4_LULC_KEY = 'Sc2v4_Griscom_CookPatton2035_smithpnv'
+SCENARIO_1_V3_LULC_KEY = 'Sc1v3_restoration_pnv0_5_on_ESA2020mVCF'
+SCENARIO_1_V4_LULC_KEY = 'Sc1v4_restoration_pnv0_001_on_ESA2020mVCF'
+NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY = 'new_esa_biophysical_121621'
+NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE = 'ID'
+
 ECOSHARD_MAP = {
     LULC_MODVCFTREE1KM_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif',
-    MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
+    #MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
     SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
     SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
-    SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
-    NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
+    SCENARIO_2_V3_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc2v3_Griscom_CookPatton2050_smithpnv_md5_82c2f863d49f5a25c0b857865bfdb4b0.tif',
+    SCENARIO_2_V4_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc2v4_Griscom_CookPatton2035_smithpnv_md5_ffde2403583e30d7df4d16a0687d71fe.tif',
+    SCENARIO_1_V3_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc1v3_restoration_pnv0.5_on_ESA2020mVCF_md5_403f35b2a8b9b917090703e291f6bc0c.tif',
+    SCENARIO_1_V4_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc1v4_restoration_pnv0.001_on_ESA2020mVCF_md5_61a44df722532a84a77598fe2a24d46c.tif',
+
+    NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
+
+    #SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
+    #NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
     DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
     EROSIVITY_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
     ERODIBILITY_KEY: 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
@@ -1003,7 +1017,14 @@ def main():
 
     run_sdr = True
     run_ndr = True
-    for lulc_key in [LULC_MODVCFTREE1KM_KEY]: #SCENARIO_1_V2_LULC_KEY]:
+    for lulc_key in [
+            ESA_LULC_KEY,
+            SCENARIO_1_LULC_KEY,
+            SCENARIO_1_V2_LULC_KEY,
+            SCENARIO_2_V3_LULC_KEY,
+            SCENARIO_2_V4_LULC_KEY,
+            SCENARIO_1_V3_LULC_KEY,
+            SCENARIO_1_V4_LULC_KEY]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
             _run_sdr(
@@ -1014,8 +1035,8 @@ def main():
                 erodibility_path=data_map[ERODIBILITY_KEY],
                 lulc_path=data_map[lulc_key],
                 target_pixel_size=TARGET_PIXEL_SIZE_M,
-                biophysical_table_path=data_map[MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY], #data_map[SDR_BIOPHYSICAL_TABLE_KEY],
-                biophysical_table_lucode_field=MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY, #SDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+                biophysical_table_path=data_map[NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY],
+                biophysical_table_lucode_field=NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE,
                 threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
                 l_cap=L_CAP,
                 k_param=K_PARAM,
@@ -1032,8 +1053,8 @@ def main():
                 workspace_dir=ndr_workspace_dir,
                 runoff_proxy_path=data_map[RUNOFF_PROXY_KEY],
                 fertilizer_path=data_map[FERTILZER_KEY],
-                biophysical_table_path=data_map[MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY], #NDR_BIOPHYSICAL_TABLE_KEY],
-                biophysical_table_lucode_field=MODVCFTREE1KM_BIOPHYSICAL_TABLE_LUCODE_KEY, #NDR_BIOPHYSICAL_TABLE_LUCODE_KEY,
+                biophysical_table_path=data_map[NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY],
+                biophysical_table_lucode_field=NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE,
                 watershed_path_list=watershed_subset_list,
                 dem_path=data_map[DEM_KEY],
                 lulc_path=data_map[lulc_key],
