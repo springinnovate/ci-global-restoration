@@ -976,7 +976,7 @@ def main():
         #'au_bas_15s_beta': [125804],
         'as_bas_15s_beta': [218032],
         }
-    #watershed_subset = None
+    watershed_subset = None
 
     # make sure taskgraph doesn't re-run just because the file was opened
     watershed_subset_task = task_graph.add_task(
@@ -1019,12 +1019,12 @@ def main():
     run_sdr = False
     run_ndr = True
     for lulc_key in [
-            ESA_LULC_KEY,
+            #ESA_LULC_KEY,
             LULC_MODVCFTREE1KM_KEY,
             #SCENARIO_1_LULC_KEY,
             #SCENARIO_1_V2_LULC_KEY,
             #SCENARIO_1_V3_LULC_KEY,
-            SCENARIO_1_V4_LULC_KEY,
+            #SCENARIO_1_V4_LULC_KEY,
             #SCENARIO_2_V3_LULC_KEY,
             #SCENARIO_2_V4_LULC_KEY,
             ]:
