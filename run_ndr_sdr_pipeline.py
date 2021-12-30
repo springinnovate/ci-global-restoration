@@ -96,9 +96,9 @@ NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE = 'ID'
 ECOSHARD_MAP = {
     LULC_MODVCFTREE1KM_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif',
     #MODVCFTREE1KM_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
+    #SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
+    #SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
     ESA_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/esa_lulc_smoothed/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_2ed6285e6f8ec1e7e0b75309cc6d6f9f.tif',
-    SCENARIO_1_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_clip_md5_93d43b6124c73cb5dc21698ea5f9c8f4.tif',
-    SCENARIO_1_V2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/restoration_pnv0.0001_on_ESA2020_v2_md5_47613f8e4d340c92b2c481cc8080cc9d.tif',
     SCENARIO_2_V3_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc2v3_Griscom_CookPatton2050_smithpnv_md5_82c2f863d49f5a25c0b857865bfdb4b0.tif',
     SCENARIO_2_V4_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc2v4_Griscom_CookPatton2035_smithpnv_md5_ffde2403583e30d7df4d16a0687d71fe.tif',
     SCENARIO_1_V3_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc1v3_restoration_pnv0.5_on_ESA2020mVCF_md5_403f35b2a8b9b917090703e291f6bc0c.tif',
@@ -972,10 +972,11 @@ def main():
     data_map = fetch_and_unpack_data(task_graph)
 
     watershed_subset = {
-        'af_bas_15s_beta': [19039, 23576, 18994],
-        'au_bas_15s_beta': [125804],
+        #'af_bas_15s_beta': [19039, 23576, 18994],
+        #'au_bas_15s_beta': [125804],
+        'as_bas_15s_beta': [218032],
         }
-    watershed_subset = None
+    #watershed_subset = None
 
     # make sure taskgraph doesn't re-run just because the file was opened
     watershed_subset_task = task_graph.add_task(
@@ -1015,16 +1016,18 @@ def main():
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
-    run_sdr = True
+    run_sdr = False
     run_ndr = True
     for lulc_key in [
             ESA_LULC_KEY,
-            SCENARIO_1_LULC_KEY,
-            SCENARIO_1_V2_LULC_KEY,
-            SCENARIO_2_V3_LULC_KEY,
-            SCENARIO_2_V4_LULC_KEY,
-            SCENARIO_1_V3_LULC_KEY,
-            SCENARIO_1_V4_LULC_KEY]:
+            LULC_MODVCFTREE1KM_KEY,
+            #SCENARIO_1_LULC_KEY,
+            #SCENARIO_1_V2_LULC_KEY,
+            #SCENARIO_1_V3_LULC_KEY,
+            SCENARIO_1_V4_LULC_KEY,
+            #SCENARIO_2_V3_LULC_KEY,
+            #SCENARIO_2_V4_LULC_KEY,
+            ]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
             _run_sdr(
