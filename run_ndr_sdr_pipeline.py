@@ -939,6 +939,9 @@ def _run_ndr(
             global_stitch_raster_path = (
                 f'%s_{result_suffix}%s' % os.path.splitext(
                     global_stitch_raster_path))
+            local_result_path = (
+                f'%s_{result_suffix}%s' % os.path.splitext(
+                    local_result_path))
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
