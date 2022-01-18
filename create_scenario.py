@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import hashlib
 
 from osgeo import gdal
 from ecoshard import geoprocessing
@@ -26,8 +27,8 @@ def _flip_pixel_proportion(
     Args:
         base_array (numpy.ndarray of int): base integer array
         probability_array (numpy.ndarray of float): values 0 <= x <= 1.
-        flip_target (int): target integer to set if base pixel is to be
-            flipped.
+        flip_target (numpy.ndarray): array of targets to flip to if the
+            base pixel exceeds threshold flip proportion.
         flip_proportion (float): in [0, 1] indicates which pixels to flip
             in base if equivalent pixel in probability is >= to this value
         probability_nodata (float): nodata value for the probability array
@@ -64,19 +65,23 @@ def main():
         f'''{flip_basename}_{args.flip_proportion}_{
             os.path.basename(args.lulc_path)}''')
 
-    workspace_dir = '_create_scenario_workspace'
+    base_raster_path_list = [
+        args.lulc_path, args.probability_path, args.flip_target_path]
+
+    path_hash = hashlib.sha256()
+    path_hash.update(','.join([
+        os.path.basename(path) for path in base_raster_path_list + [
+            str(args.flip_proportion)]]).encode(
+        'utf-8'))
+    workspace_dir = os.path.join('_create_scenario_workspace', path_hash.hexdigest()[:5])
     os.makedirs(workspace_dir, exist_ok=True)
 
     task_graph = taskgraph.TaskGraph(workspace_dir, -1)
-
-    base_raster_path_list = [
-        args.lulc_path, args.probability_path, args.flip_target_path]
 
     aligned_raster_path_list = [
         os.path.join(workspace_dir, os.path.basename(path))
         for path in base_raster_path_list]
     lulc_info = geoprocessing.get_raster_info(args.lulc_path)
-    probability_info = geoprocessing.get_raster_info(args.probability_path)
 
     LOGGER.info(f'align raster stack {lulc_info["pixel_size"]}')
     align_task = task_graph.add_task(
