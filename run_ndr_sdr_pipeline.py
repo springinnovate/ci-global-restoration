@@ -1071,6 +1071,7 @@ def main():
     run_sdr = True
     run_ndr = True
     keep_intermediate_files = True
+    dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
     for lulc_key in [
             ESAMOD2_LULC_KEY,
             SC1V5RENATO_GT_0_5_LULC_KEY,
@@ -1081,7 +1082,7 @@ def main():
             SC3V2PNVALL_LULC_KEY,
             ]:
         if run_sdr:
-            sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, lulc_key)
+            sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
             _run_sdr(
                 workspace_dir=sdr_workspace_dir,
                 watershed_path_list=watershed_subset_list,
@@ -1103,7 +1104,7 @@ def main():
                 )
 
         if run_ndr:
-            ndr_workspace_dir = os.path.join(NDR_WORKSPACE_DIR, lulc_key)
+            ndr_workspace_dir = os.path.join(NDR_WORKSPACE_DIR, dem_key)
             _run_ndr(
                 workspace_dir=ndr_workspace_dir,
                 runoff_proxy_path=data_map[RUNOFF_PROXY_KEY],
@@ -1120,7 +1121,6 @@ def main():
                 keep_intermediate_files=keep_intermediate_files,
                 result_suffix=lulc_key,
                 )
-        return
 
 
 def _warp_raster_stack(
