@@ -54,7 +54,7 @@ N_TO_BUFFER_STITCH = 10
 
 TARGET_PIXEL_SIZE_M = 300  # pixel size in m when operating on projected data
 GLOBAL_PIXEL_SIZE_DEG = 10/3600  # 10s resolution
-GLOBAL_BB = [-180, -60, 180, 60]
+GLOBAL_BB = [-179.9, -60, 179.9, 60]
 
 # These SDR constants are what we used as the defaults in a previous project
 THRESHOLD_FLOW_ACCUMULATION = 1000
@@ -454,6 +454,7 @@ def _create_fid_subset(
 
 
 def _run_sdr(
+        task_graph,
         workspace_dir,
         watershed_path_list,
         dem_path,
@@ -509,9 +510,6 @@ def _run_sdr(
         None.
     """
     # create global stitch rasters and start workers
-    task_graph = taskgraph.TaskGraph(
-        workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='process', taskgraph_name='sdr processor')
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -582,13 +580,12 @@ def _run_sdr(
                 threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
                 target_pixel_size, biophysical_table_lucode_field,
                 stitch_raster_queue_map, result_suffix),
-            transient_run=True,
+            transient_run=False,
             priority=-index,  # priority in insert order
             task_name=task_name)
 
     LOGGER.info('wait for SDR jobs to complete')
     task_graph.join()
-    task_graph.close()
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(None)
     LOGGER.info('all done with SDR, waiting for stitcher to terminate')
@@ -911,6 +908,7 @@ def stitch_worker(
 
 
 def _run_ndr(
+        task_graph,
         workspace_dir,
         watershed_path_list,
         dem_path,
@@ -925,10 +923,6 @@ def _run_ndr(
         target_stitch_raster_map,
         keep_intermediate_files=False,
         result_suffix=None,):
-    task_graph = taskgraph.TaskGraph(
-        workspace_dir, multiprocessing.cpu_count(), 10,
-        parallel_mode='process', taskgraph_name='ndr processor')
-    #task_graph = taskgraph.TaskGraph(workspace_dir, -1)
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -997,13 +991,12 @@ def _run_ndr(
                 threshold_flow_accumulation, k_param, target_pixel_size,
                 biophysical_table_lucode_field, stitch_raster_queue_map,
                 result_suffix),
-            transient_run=True,
+            transient_run=False,
             priority=-index,  # priority in insert order
             task_name=f'ndr {os.path.basename(local_workspace_dir)}')
 
     LOGGER.info('wait for ndr jobs to complete')
     task_graph.join()
-    task_graph.close()
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(None)
     LOGGER.info('all done with ndr, waiting for stitcher to terminate')
@@ -1021,8 +1014,8 @@ def _run_ndr(
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(),
-        parallel_mode='thread', taskgraph_name='run pipeline main')
+        WORKSPACE_DIR, multiprocessing.cpu_count(), 15.0,
+        parallel_mode='process', taskgraph_name='run pipeline main')
     data_map = fetch_and_unpack_data(task_graph)
 
     watershed_subset = {
@@ -1031,7 +1024,7 @@ def main():
         #'as_bas_15s_beta': [218032],
         'af_bas_15s_beta': [78138],
         }
-    #watershed_subset = None
+    watershed_subset = None
 
     # make sure taskgraph doesn't re-run just because the file was opened
     watershed_subset_task = task_graph.add_task(
@@ -1045,8 +1038,6 @@ def main():
     watershed_subset_list = watershed_subset_task.get()
 
     task_graph.join()
-    task_graph.close()
-    task_graph = None
 
     LOGGER.debug(len(watershed_subset_list))
     LOGGER.debug(watershed_subset_list)
@@ -1087,6 +1078,7 @@ def main():
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
             _run_sdr(
+                task_graph=task_graph,
                 workspace_dir=sdr_workspace_dir,
                 watershed_path_list=watershed_subset_list,
                 dem_path=data_map[DEM_KEY],
@@ -1109,6 +1101,7 @@ def main():
         if run_ndr:
             ndr_workspace_dir = os.path.join(NDR_WORKSPACE_DIR, dem_key)
             _run_ndr(
+                task_graph=task_graph,
                 workspace_dir=ndr_workspace_dir,
                 runoff_proxy_path=data_map[RUNOFF_PROXY_KEY],
                 fertilizer_path=data_map[FERTILZER_KEY],
