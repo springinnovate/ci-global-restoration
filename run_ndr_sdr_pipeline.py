@@ -412,7 +412,7 @@ def _batch_into_watershed_subsets(
                     reverse=True):
             if job_id in job_id_set:
                 raise ValueError(f'{job_id} already processed')
-            if len(watershed_envelope_list < 3) and area < 0.0001:
+            if len(watershed_envelope_list) < 3 and area < 0.0001:
                 # it's too small to process
                 continue
             job_id_set.add(job_id)
