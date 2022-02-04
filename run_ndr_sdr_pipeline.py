@@ -394,7 +394,7 @@ def _batch_into_watershed_subsets(
                     watershed_bb[3] < GLOBAL_BB[1]):
                 LOGGER.warn(
                     f'{watershed_bb} is on a dangerous boundary so dropping')
-                watershed_fid_index[0].pop()
+                watershed_fid_index[job_id][0].pop()
                 continue
             watershed_fid_index[job_id][1].append(watershed_bb)
             watershed_fid_index[job_id][2] += watershed_geom.Area()
