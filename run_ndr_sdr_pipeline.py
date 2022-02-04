@@ -394,6 +394,7 @@ def _batch_into_watershed_subsets(
                     watershed_bb[3] < GLOBAL_BB[1]):
                 LOGGER.warn(
                     f'{watershed_bb} is on a dangerous boundary so dropping')
+                watershed_fid_index[0].pop()
                 continue
             watershed_fid_index[job_id][1].append(watershed_bb)
             watershed_fid_index[job_id][2] += watershed_geom.Area()
@@ -1081,7 +1082,7 @@ def main():
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
-    run_sdr = True
+    run_sdr = False
     run_ndr = True
     keep_intermediate_files = True
     dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
