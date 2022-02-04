@@ -388,7 +388,10 @@ def _batch_into_watershed_subsets(
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
-            if watershed_bb[1] < -179.95 or watershed_bb[3] > 179.95:
+            if (watershed_bb[0] < GLOBAL_BB[0] or
+                    watershed_bb[2] > GLOBAL_BB[2] or
+                    watershed_bb[1] < GLOBAL_BB[1] or
+                    watershed_bb[3] > GLOBAL_BB[3]):
                 LOGGER.warn(
                     f'{watershed_bb} is on a dangerous boundary so dropping')
                 continue
