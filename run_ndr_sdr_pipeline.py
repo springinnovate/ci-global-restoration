@@ -391,6 +391,10 @@ def _batch_into_watershed_subsets(
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
+            if watershed_bb[1] < -179.95 or watershed_bb[3] > 179.95:
+                LOGGER.warn(
+                    f'{watershed_bb} is on a dangerous boundary so dropping')
+                continue
             watershed_fid_index[job_id][1].append(watershed_bb)
             watershed_fid_index[job_id][2] += watershed_geom.Area()
 
@@ -1026,7 +1030,6 @@ def _run_ndr(
     LOGGER.info('all done with ndr -- stitcher terminated')
 
 
-
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
@@ -1054,6 +1057,7 @@ def main():
     watershed_subset_list = watershed_subset_task.get()
 
     task_graph.join()
+    return
 
     LOGGER.debug(len(watershed_subset_list))
     LOGGER.debug(watershed_subset_list)
