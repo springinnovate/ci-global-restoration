@@ -244,8 +244,7 @@ def fetch_data(ecoshard_map, data_dir):
                         task_name=f'download {value}')
                 data_map[key] = target_path
             else:
-                LOGGER.warning(f'{key}: {value} does not refer to a url')
-                data_map[key] = value
+                raise ValueError(f'{key}: {value} does not refer to a url')
         else:
             data_map[key] = value
     LOGGER.info('waiting for downloads to complete')
