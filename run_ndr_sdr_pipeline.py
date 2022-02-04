@@ -1054,7 +1054,6 @@ def main():
     watershed_subset_list = watershed_subset_task.get()
 
     task_graph.join()
-    return
 
     LOGGER.debug(len(watershed_subset_list))
     LOGGER.debug(watershed_subset_list)
