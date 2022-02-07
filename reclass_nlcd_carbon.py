@@ -14,7 +14,7 @@ def _mask_op(base_array, mask_array, target_val):
 if __name__ == '__main__':
     cl_path = 'Confident_Cotton_Layer_2011_to_2020.tif'
     nlcd_path = 'nlcd2016_compressed_md5_f372b.tif'
-    nlcd_cotton_path, = f'cotton_to_83_{nlcd_path}'
+    nlcd_cotton_path = f'cotton_to_83_{nlcd_path}'
 
     workspace_dir = 'confident_cotton_dir'
     os.path.makedirs(workspace_dir, exist_ok=True)
