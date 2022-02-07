@@ -137,12 +137,10 @@ ECOSHARD_MAP = {
 
     NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
     NLCD_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/nlcd_biophysical_md5_92b0d4c44168f7595be66daff611203f.csv',
-    #SDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/Biophysical_table_ESA_ARIES_RS_md5_e16587ebe01db21034ef94171c76c463.csv',
-    #NDR_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/nci-ecoshards/nci-NDR-biophysical_table_ESA_ARIES_RS3_md5_74d69f7e7dc829c52518f46a5a655fb8.csv',
-    DEM_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
-    EROSIVITY_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
+    DEM_KEY: 'https://storage.googleapis.com/ecoshard-root/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
+    EROSIVITY_KEY: 'https://storage.googleapis.com/ecoshard-root/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
     ERODIBILITY_KEY: 'https://storage.googleapis.com/ecoshard-root/pasquale/Kfac_SoilGrid1km_GloSEM_v1.1_md5_e1c74b67ad7fdaf6f69f1f722a5c7dfb.tif',
-    WATERSHEDS_KEY: 'https://storage.googleapis.com/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
+    WATERSHEDS_KEY: 'https://storage.googleapis.com/ecoshard-root/global-invest-sdr-data/watersheds_globe_HydroSHEDS_15arcseconds_md5_c6acf2762123bbd5de605358e733a304.zip',
     RUNOFF_PROXY_KEY: 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/worldclim_2015_md5_16356b3770460a390de7e761a27dbfa1.tif',
     HE60PR50_PRECIP_KEY: 'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/precip_scenarios/he60pr50_md5_829fbd47b8fefb064ae837cbe4d9f4be.tif',
     FERTILZER_KEY: 'https://storage.googleapis.com/nci-ecoshards/scenarios050420/NCI_Ext_RevB_add_backgroundN_md5_e4a9cc537cd0092d346e4287e7bd4c36.tif',
@@ -244,8 +242,7 @@ def fetch_data(ecoshard_map, data_dir):
                         task_name=f'download {value}')
                 data_map[key] = target_path
             else:
-                LOGGER.warning(f'{key}: {value} does not refer to a url')
-                data_map[key] = value
+                raise ValueError(f'{key}: {value} does not refer to a url')
         else:
             data_map[key] = value
     LOGGER.info('waiting for downloads to complete')
@@ -391,6 +388,14 @@ def _batch_into_watershed_subsets(
                 watershed_fid_index[job_id][0].append(fid)
             watershed_envelope = watershed_geom.GetEnvelope()
             watershed_bb = [watershed_envelope[i] for i in [0, 2, 1, 3]]
+            if (watershed_bb[0] < GLOBAL_BB[0] or
+                    watershed_bb[2] > GLOBAL_BB[2] or
+                    watershed_bb[1] > GLOBAL_BB[3] or
+                    watershed_bb[3] < GLOBAL_BB[1]):
+                LOGGER.warn(
+                    f'{watershed_bb} is on a dangerous boundary so dropping')
+                watershed_fid_index[job_id][0].pop()
+                continue
             watershed_fid_index[job_id][1].append(watershed_bb)
             watershed_fid_index[job_id][2] += watershed_geom.Area()
 
@@ -407,6 +412,9 @@ def _batch_into_watershed_subsets(
                     reverse=True):
             if job_id in job_id_set:
                 raise ValueError(f'{job_id} already processed')
+            if len(watershed_envelope_list) < 3 and area < 0.0001:
+                # it's too small to process
+                continue
             job_id_set.add(job_id)
 
             watershed_subset_path = os.path.join(
@@ -1026,7 +1034,6 @@ def _run_ndr(
     LOGGER.info('all done with ndr -- stitcher terminated')
 
 
-
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(
@@ -1078,7 +1085,7 @@ def main():
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
-    run_sdr = True
+    run_sdr = False
     run_ndr = True
     keep_intermediate_files = True
     dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
