@@ -15,7 +15,7 @@ RECLASS_ID = 83
 
 def _mask_op(base_array, mask_array, target_val):
     result = base_array.copy()
-    result[mask_array] = target_val
+    result[mask_array == 1] = target_val
     return result
 
 
