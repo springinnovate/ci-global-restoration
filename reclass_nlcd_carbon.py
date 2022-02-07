@@ -1,8 +1,16 @@
 """Reclass NLCD with carbon, 1 cotton to 83 (it's all 0) after doing this add it to NLCD input table so i can run SDR/NDR runs."""
+import logging
 import os
 
 from ecoshard import taskgraph
 from ecoshard import geoprocessing
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=(
+        '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
+        ' [%(pathname)s.%(funcName)s:%(lineno)d] %(message)s'))
+LOGGER = logging.getLogger(__name__)
 
 
 def _mask_op(base_array, mask_array, target_val):
