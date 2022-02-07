@@ -11,7 +11,7 @@ logging.basicConfig(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(pathname)s.%(funcName)s:%(lineno)d] %(message)s'))
 LOGGER = logging.getLogger(__name__)
-
+RECLASS_ID = 83
 
 def _mask_op(base_array, mask_array, target_val):
     result = base_array.copy()
@@ -47,8 +47,9 @@ if __name__ == '__main__':
     _ = task_graph.add_task(
         func=geoprocessing.raster_calculator,
         args=(
-            [(nlcd_path, 1), (warped_cl_path, 1)], _mask_op, nlcd_cotton_path,
-            nlcd_info['datatype'], nlcd_info['nodata'][0]),
+            [(nlcd_path, 1), (warped_cl_path, 1), (RECLASS_ID, 'raw')],
+            _mask_op, nlcd_cotton_path, nlcd_info['datatype'],
+            nlcd_info['nodata'][0]),
         target_path_list=[nlcd_cotton_path],
         dependent_task_list=[warp_task],
         task_name=f'convert to 81 where cotton for {nlcd_cotton_path}')
