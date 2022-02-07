@@ -47,7 +47,7 @@ if __name__ == '__main__':
     _ = task_graph.add_task(
         func=geoprocessing.raster_calculator,
         args=(
-            [(cl_path, 1), (warped_cl_path, 1)], _mask_op, nlcd_cotton_path,
+            [(nlcd_path, 1), (warped_cl_path, 1)], _mask_op, nlcd_cotton_path,
             nlcd_info['datatype'], nlcd_info['nodata'][0]),
         target_path_list=[nlcd_cotton_path],
         dependent_task_list=[warp_task],
