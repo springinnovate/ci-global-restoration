@@ -17,7 +17,7 @@ if __name__ == '__main__':
     nlcd_cotton_path = f'cotton_to_83_{nlcd_path}'
 
     workspace_dir = 'confident_cotton_dir'
-    os.path.makedirs(workspace_dir, exist_ok=True)
+    os.makedirs(workspace_dir, exist_ok=True)
 
     warped_cl_path = os.path.join(
         workspace_dir,
