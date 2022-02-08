@@ -109,6 +109,7 @@ HE60PR50_PRECIP_KEY = 'he60pr50'
 NLCD_BIOPHYSICAL_TABLE_KEY = 'nlcd_biophysical'
 NLCD_COTTON_TO_83_KEY = 'nlcd2016_cotton_to_83'
 BASE_NLCD_KEY = 'nlcd2016'
+NLCD_LUCODE = 'lulc'
 
 ECOSHARD_MAP = {
     ESAMOD2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESAmodVCFv2_md5_05407ed305c24604eb5a38551cddb031.tif',
@@ -1096,7 +1097,7 @@ def main():
     keep_intermediate_files = True
     dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
     sdr_run_set = set()
-    for lulc_key, biophysical_table_key, fert_key in [
+    for lulc_key, biophysical_table_key, lucode, fert_key in [
             #(ESAMOD2_LULC_KEY, None),
             #(SC1V5RENATO_GT_0_5_LULC_KEY, None),
             #(SC1V6RENATO_GT_0_001_LULC_KEY, None),
@@ -1111,8 +1112,8 @@ def main():
             #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_INTENSIFIED_KEY),
             #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
             #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
-            (NLCD_COTTON_TO_83_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, FERTILIZER_CURRENT_KEY),
-            (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, FERTILIZER_CURRENT_KEY),
+            (NLCD_COTTON_TO_83_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
+            (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             ]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
@@ -1130,7 +1131,7 @@ def main():
                 lulc_path=data_map[lulc_key],
                 target_pixel_size=TARGET_PIXEL_SIZE_M,
                 biophysical_table_path=data_map[biophysical_table_key],
-                biophysical_table_lucode_field=NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE,
+                biophysical_table_lucode_field=lucode,
                 threshold_flow_accumulation=THRESHOLD_FLOW_ACCUMULATION,
                 l_cap=L_CAP,
                 k_param=K_PARAM,
@@ -1152,7 +1153,7 @@ def main():
                 runoff_proxy_path=data_map[HE60PR50_PRECIP_KEY],
                 fertilizer_path=data_map[fert_key],
                 biophysical_table_path=data_map[biophysical_table_key],
-                biophysical_table_lucode_field=NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE,
+                biophysical_table_lucode_field=lucode,
                 watershed_path_list=watershed_subset_list,
                 dem_path=data_map[DEM_KEY],
                 lulc_path=data_map[lulc_key],
