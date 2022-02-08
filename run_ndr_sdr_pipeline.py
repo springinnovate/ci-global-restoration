@@ -107,6 +107,8 @@ FERTILIZER_INTENSIFIED_KEY = 'fertilizer_intensified'
 FERTILIZER_2050_KEY = 'fertilizer_2050'
 HE60PR50_PRECIP_KEY = 'he60pr50'
 NLCD_BIOPHYSICAL_TABLE_KEY = 'nlcd_biophysical'
+NLCD_COTTON_TO_83_KEY = 'nlcd2016_cotton_to_83'
+BASE_NLCD_KEY = 'nlcd2016'
 
 ECOSHARD_MAP = {
     ESAMOD2_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/ESAmodVCFv2_md5_05407ed305c24604eb5a38551cddb031.tif',
@@ -120,6 +122,9 @@ ECOSHARD_MAP = {
     LULC_SC1_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/ESA_2015_mod_IIS_md5_c5063ced9f1c75ebdf6da2ac006afecd.tif',
     LULC_SC2_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/reclassified_NCIallag_bare_to_sparse_md5_6683283f691fef0507c6909e9786be1a.tif',
     LULC_SC3_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/reclassified_PNV_smith_bare_to_sparse_md5_18d50e06130765b80064c824601f7c47.tif',
+
+    BASE_NLCD_KEY: 'https://storage.googleapis.com/ecoshard-root/gee_export/nlcd2016_compressed_md5_f372b.tif',
+    NLCD_COTTON_TO_83_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/cotton_to_83_nlcd2016_md5_f265f5.tif',
 
     FERTILIZER_CURRENT_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Nrates_NCIcurrentRevQ_add_smithpnv_background_md5_0cdf5cd1c3ba6e1032fcac63174fa8e1.tif',
     FERTILIZER_INTENSIFIED_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/finaltotalNfertratesirrigatedRevQ_add_background_md5_b763d688a87360d37868d6a0fbd6b68a.tif',
@@ -136,6 +141,7 @@ ECOSHARD_MAP = {
     SCENARIO_1_V4_LULC_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Sc1v4_restoration_pnv0.001_on_ESA2020mVCF_md5_61a44df722532a84a77598fe2a24d46c.tif',
 
     NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
+
     NLCD_BIOPHYSICAL_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/nlcd_biophysical_md5_92b0d4c44168f7595be66daff611203f.csv',
     DEM_KEY: 'https://storage.googleapis.com/ecoshard-root/global-invest-sdr-data/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
     EROSIVITY_KEY: 'https://storage.googleapis.com/ecoshard-root/global-invest-sdr-data/GlobalR_NoPol_compressed_md5_49734c4b1c9c94e49fffd0c39de9bf0c.tif',
@@ -1085,7 +1091,7 @@ def main():
             WORKSPACE_DIR, 'global_modified_load_n.tif'),
     }
 
-    run_sdr = False
+    run_sdr = True
     run_ndr = True
     keep_intermediate_files = True
     dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
@@ -1098,13 +1104,15 @@ def main():
             #(SC2V6GRISCOM2050_LULC_KEY, None),
             #(SC3V1PNVNOAG_LULC_KEY, None),
             #(SC3V2PNVALL_LULC_KEY, None),
-            (LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
-            (LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
-            (LULC_SC3_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
-            (LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_INTENSIFIED_KEY),
-            (LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_INTENSIFIED_KEY),
-            (LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
-            (LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
+            #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
+            #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
+            #(LULC_SC3_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_CURRENT_KEY),
+            #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_INTENSIFIED_KEY),
+            #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_INTENSIFIED_KEY),
+            #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
+            #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, FERTILIZER_2050_KEY),
+            (NLCD_COTTON_TO_83_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, FERTILIZER_CURRENT_KEY),
+            (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, FERTILIZER_CURRENT_KEY),
             ]:
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
