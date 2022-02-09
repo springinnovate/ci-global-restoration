@@ -124,8 +124,8 @@ ECOSHARD_MAP = {
     LULC_SC2_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/reclassified_NCIallag_bare_to_sparse_md5_6683283f691fef0507c6909e9786be1a.tif',
     LULC_SC3_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/reclassified_PNV_smith_bare_to_sparse_md5_18d50e06130765b80064c824601f7c47.tif',
 
-    BASE_NLCD_KEY: 'https://storage.googleapis.com/ecoshard-root/gee_export/nlcd2016_compressed_md5_f372b.tif',
-    NLCD_COTTON_TO_83_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/cotton_to_83_nlcd2016_md5_f265f5.tif',
+    BASE_NLCD_KEY: ('https://storage.googleapis.com/ecoshard-root/gee_export/nlcd2016_compressed_md5_f372b.tif', 0),
+    NLCD_COTTON_TO_83_KEY: ('https://storage.googleapis.com/ecoshard-root/cbd/scenarios/cotton_to_83_nlcd2016_md5_f265f5.tif', 0),
 
     FERTILIZER_CURRENT_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Nrates_NCIcurrentRevQ_add_smithpnv_background_md5_0cdf5cd1c3ba6e1032fcac63174fa8e1.tif',
     FERTILIZER_INTENSIFIED_KEY: 'https://storage.googleapis.com/ecoshard-root/cbd/scenarios/finaltotalNfertratesirrigatedRevQ_add_background_md5_b763d688a87360d37868d6a0fbd6b68a.tif',
@@ -217,6 +217,17 @@ def _download_and_validate(url, target_path):
         raise ValueError(f'{target_path} did not validate on its hash')
 
 
+def _download_and_set_nodata(url, nodata, target_path):
+    """Download and set nodata value if needed."""
+    ecoshard.download_url(url, target_path)
+    if nodata is not None:
+        raster = gdal.OpenEx(target_path, gdal.GA_Update)
+        band = raster.GetRasterBand(1)
+        band.SetNoDataValue(nodata)
+        band = None
+        raster = None
+
+
 def fetch_data(ecoshard_map, data_dir):
     """Download data in `ecoshard_map` and replace urls with targets.
 
@@ -237,21 +248,25 @@ def fetch_data(ecoshard_map, data_dir):
         taskgraph_name='fetch data')
     data_map = {}
     for key, value in ecoshard_map.items():
-        if value.startswith('http'):
-            response = requests.head(value)
+        if isinstance(value, tuple):
+            url, nodata = value
+        else:
+            url = value
+        if url.startswith('http'):
+            response = requests.head(url)
             if response:
-                target_path = os.path.join(data_dir, os.path.basename(value))
+                target_path = os.path.join(data_dir, os.path.basename(url))
                 if not os.path.exists(target_path):
                     task_graph.add_task(
-                        func=ecoshard.download_url,
-                        args=(value, target_path),
+                        func=_download_and_set_nodata,
+                        args=(url, nodata, target_path),
                         target_path_list=[target_path],
-                        task_name=f'download {value}')
+                        task_name=f'download {url}')
                 data_map[key] = target_path
             else:
-                raise ValueError(f'{key}: {value} does not refer to a url')
+                raise ValueError(f'{key}: {url} does not refer to a url')
         else:
-            data_map[key] = value
+            data_map[key] = url
     LOGGER.info('waiting for downloads to complete')
     task_graph.close()
     task_graph.join()
