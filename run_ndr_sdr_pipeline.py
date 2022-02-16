@@ -1067,6 +1067,7 @@ def main():
         WORKSPACE_DIR, multiprocessing.cpu_count(), 15.0,
         parallel_mode='process', taskgraph_name='run pipeline main')
     data_map = fetch_and_unpack_data(task_graph)
+    LOGGER.debug(data_map)
 
     watershed_subset = {
         #'af_bas_15s_beta': [19039, 23576, 18994],
