@@ -564,7 +564,7 @@ def _run_sdr(
         None.
     """
     # create intersecting bounding box of input data
-    global_bb = _calculate_intersecting_bounding_box(
+    global_wgs84_bb = _calculate_intersecting_bounding_box(
         [dem_path, erosivity_path, erodibility_path, lulc_path])
 
     # create global stitch rasters and start workers
@@ -584,8 +584,8 @@ def _run_sdr(
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
-            n_cols = int((global_bb[2]-global_bb[0])/GLOBAL_PIXEL_SIZE_DEG)
-            n_rows = int((global_bb[3]-global_bb[1])/GLOBAL_PIXEL_SIZE_DEG)
+            n_cols = int((global_wgs84_bb[2]-global_wgs84_bb[0])/GLOBAL_PIXEL_SIZE_DEG)
+            n_rows = int((global_wgs84_bb[3]-global_wgs84_bb[1])/GLOBAL_PIXEL_SIZE_DEG)
             LOGGER.info(f'**** creating raster of size {n_cols} by {n_rows}')
             target_raster = driver.Create(
                 global_stitch_raster_path,
@@ -598,8 +598,8 @@ def _run_sdr(
             wgs84_srs.ImportFromEPSG(4326)
             target_raster.SetProjection(wgs84_srs.ExportToWkt())
             target_raster.SetGeoTransform(
-                [global_bb[0], GLOBAL_PIXEL_SIZE_DEG, 0,
-                 global_bb[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
+                [global_wgs84_bb[0], GLOBAL_PIXEL_SIZE_DEG, 0,
+                 global_wgs84_bb[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
             target_band = target_raster.GetRasterBand(1)
             target_band.SetNoDataValue(-9999)
             target_raster = None
@@ -633,11 +633,12 @@ def _run_sdr(
         task_graph.add_task(
             func=_execute_sdr_job,
             args=(
-                watershed_path, local_workspace_dir, dem_path, erosivity_path,
-                erodibility_path, lulc_path, biophysical_table_path,
-                threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
-                target_pixel_size, biophysical_table_lucode_field,
-                stitch_raster_queue_map, result_suffix),
+                global_wgs84_bb, watershed_path, local_workspace_dir,
+                dem_path, erosivity_path, erodibility_path, lulc_path,
+                biophysical_table_path, threshold_flow_accumulation, k_param,
+                sdr_max, ic_0_param, target_pixel_size,
+                biophysical_table_lucode_field, stitch_raster_queue_map,
+                result_suffix),
             transient_run=False,
             priority=-index,  # priority in insert order
             task_name=task_name)
@@ -658,15 +659,17 @@ def _run_sdr(
 
 
 def _execute_sdr_job(
-        watershed_path, local_workspace_dir, dem_path, erosivity_path,
-        erodibility_path, lulc_path, biophysical_table_path,
+        global_wgs84_bb, watersheds_path, local_workspace_dir, dem_path,
+        erosivity_path, erodibility_path, lulc_path, biophysical_table_path,
         threshold_flow_accumulation, k_param, sdr_max, ic_0_param,
         target_pixel_size, biophysical_table_lucode_field,
         stitch_raster_queue_map, result_suffix):
     """Worker to execute sdr and send signals to stitcher.
 
     Args:
-        watershed_path (str): path to watershed to run model over
+        global_wgs84_bb (list): bounding box to limit run to, if watersheds do
+            not fit, then skip
+        watersheds_path (str): path to watershed to run model over
         local_workspace_dir (str): path to local directory
 
         SDR arguments:
@@ -689,6 +692,11 @@ def _execute_sdr_job(
     Returns:
         None.
     """
+    if not _watersheds_intersect(global_wgs84_bb, watersheds_path):
+        for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+            # indicate skipping
+            stitch_queue.put((None, 1))
+
     local_sdr_taskgraph = taskgraph.TaskGraph(local_workspace_dir, -1)
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
     base_raster_path_list = [
@@ -697,7 +705,7 @@ def _execute_sdr_job(
 
     clipped_data_dir = os.path.join(local_workspace_dir, 'data')
     os.makedirs(clipped_data_dir, exist_ok=True)
-    watershed_info = geoprocessing.get_vector_info(watershed_path)
+    watershed_info = geoprocessing.get_vector_info(watersheds_path)
     target_projection_wkt = watershed_info['projection_wkt']
     watershed_bb = watershed_info['bounding_box']
     lat_lng_bb = geoprocessing.transform_bounding_box(
@@ -712,7 +720,7 @@ def _execute_sdr_job(
     _warp_raster_stack(
         local_sdr_taskgraph, base_raster_path_list, warped_raster_path_list,
         resample_method_list, dem_pixel_size, target_pixel_size,
-        lat_lng_bb, osr.SRS_WKT_WGS84_LAT_LONG, watershed_path)
+        lat_lng_bb, osr.SRS_WKT_WGS84_LAT_LONG, watersheds_path)
     local_sdr_taskgraph.join()
 
     # clip to lat/lng bounding boxes
@@ -723,7 +731,7 @@ def _execute_sdr_job(
         'erodibility_path': warped_raster_path_list[2],
         'lulc_path': warped_raster_path_list[3],
         'prealigned': True,
-        'watersheds_path': watershed_path,
+        'watersheds_path': watersheds_path,
         'biophysical_table_path': biophysical_table_path,
         'threshold_flow_accumulation': threshold_flow_accumulation,
         'k_param': k_param,
@@ -732,7 +740,7 @@ def _execute_sdr_job(
         'results_suffix': result_suffix,
         'biophysical_table_lucode_field': biophysical_table_lucode_field,
         'single_outlet': geoprocessing.get_vector_info(
-            watershed_path)['feature_count'] == 1,
+            watersheds_path)['feature_count'] == 1,
         'prealigned': True,
         'reuse_dem': True,
     }
@@ -743,12 +751,17 @@ def _execute_sdr_job(
 
 
 def _execute_ndr_job(
-        watershed_path, local_workspace_dir, dem_path, lulc_path,
+        global_wgs84_bb, watersheds_path, local_workspace_dir, dem_path,
+        lulc_path,
         runoff_proxy_path, fertilizer_path, biophysical_table_path,
         threshold_flow_accumulation, k_param, target_pixel_size,
         biophysical_table_lucode_field, stitch_raster_queue_map,
         result_suffix):
     """Execute NDR for watershed and push to stitch raster.
+
+        Args:
+            global_wgs84_bb (list): global bounding box to test watershed
+                overlap with
 
         args['workspace_dir'] (string):  path to current workspace
         args['dem_path'] (string): path to digital elevation map raster
@@ -782,6 +795,11 @@ def _execute_ndr_job(
             a large sink or the lowest pixel on the edge of the dem.
         result_suffix (str): string to append to NDR files.
     """
+    if not _watersheds_intersect(global_wgs84_bb, watersheds_path):
+        for local_result_path, stitch_queue in stitch_raster_queue_map.items():
+            # indicate skipping
+            stitch_queue.put((None, 1))
+
     local_ndr_taskgraph = taskgraph.TaskGraph(local_workspace_dir, -1)
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
     base_raster_path_list = [
@@ -790,50 +808,36 @@ def _execute_ndr_job(
 
     clipped_data_dir = os.path.join(local_workspace_dir, 'data')
     os.makedirs(clipped_data_dir, exist_ok=True)
-    watershed_info = geoprocessing.get_vector_info(watershed_path)
+    watershed_info = geoprocessing.get_vector_info(watersheds_path)
     target_projection_wkt = watershed_info['projection_wkt']
     watershed_bb = watershed_info['bounding_box']
     lat_lng_bb = geoprocessing.transform_bounding_box(
         watershed_bb, target_projection_wkt, osr.SRS_WKT_WGS84_LAT_LONG)
 
-    # clipped_raster_path_list = [
-    #     os.path.join(clipped_data_dir, os.path.basename(path))
-    #     for path in base_raster_path_list]
-
-    # geoprocessing.align_and_resize_raster_stack(
-    #     base_raster_path_list, clipped_raster_path_list,
-    #     resample_method_list,
-    #     dem_pixel_size, lat_lng_bb,
-    #     target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG)
-
     warped_raster_path_list = [
         os.path.join(clipped_data_dir, os.path.basename(path))
         for path in base_raster_path_list]
 
-    # TODO: figure out bounding box then individually warp so we don't
-    # re-warp stuff we already did
     _warp_raster_stack(
         local_ndr_taskgraph, base_raster_path_list, warped_raster_path_list,
         resample_method_list, dem_pixel_size, target_pixel_size,
-        lat_lng_bb, osr.SRS_WKT_WGS84_LAT_LONG, watershed_path)
+        lat_lng_bb, osr.SRS_WKT_WGS84_LAT_LONG, watersheds_path)
     local_ndr_taskgraph.join()
 
-
-    # clip to lat/lng bounding boxes
     args = {
         'workspace_dir': local_workspace_dir,
         'dem_path': warped_raster_path_list[0],
         'runoff_proxy_path': warped_raster_path_list[1],
         'lulc_path': warped_raster_path_list[2],
         'fertilizer_path': warped_raster_path_list[3],
-        'watersheds_path': watershed_path,
+        'watersheds_path': watersheds_path,
         'biophysical_table_path': biophysical_table_path,
         'threshold_flow_accumulation': threshold_flow_accumulation,
         'k_param': k_param,
         'target_pixel_size': (target_pixel_size, -target_pixel_size),
         'target_projection_wkt': target_projection_wkt,
         'single_outlet': geoprocessing.get_vector_info(
-            watershed_path)['feature_count'] == 1,
+            watersheds_path)['feature_count'] == 1,
         'biophyisical_lucode_fieldname': biophysical_table_lucode_field,
         'crit_len_n': 150.0,
         'prealigned': True,
@@ -844,22 +848,6 @@ def _execute_ndr_job(
     for local_result_path, stitch_queue in stitch_raster_queue_map.items():
         stitch_queue.put(
             (os.path.join(args['workspace_dir'], local_result_path), 1))
-
-
-def _run_cv():
-    pass
-
-
-def _run_pollination_nature_access():
-    pass
-
-
-def _run_downstream_beneficiaries():
-    pass
-
-
-def _run_coastal_beneficiares():
-    pass
 
 
 def _clean_workspace_worker(
@@ -925,6 +913,9 @@ def stitch_worker(
             payload = rasters_to_stitch_queue.get()
             if payload is not None:
                 stitch_buffer_list.append(payload)
+            if payload[0] is None:  # means skip this raster
+                processed_so_far += 1
+                continue
 
             if len(stitch_buffer_list) > N_TO_BUFFER_STITCH or payload is None:
                 LOGGER.info(
@@ -981,6 +972,11 @@ def _run_ndr(
         target_stitch_raster_map,
         keep_intermediate_files=False,
         result_suffix=None,):
+
+    # create intersecting bounding box of input data
+    global_wgs84_bb = _calculate_intersecting_bounding_box(
+        [dem_path, runoff_proxy_path, fertilizer_path, lulc_path])
+
     stitch_raster_queue_map = {}
     stitch_worker_list = []
     multiprocessing_manager = multiprocessing.Manager()
@@ -1044,8 +1040,9 @@ def _run_ndr(
         task_graph.add_task(
             func=_execute_ndr_job,
             args=(
-                watershed_path, local_workspace_dir, dem_path, lulc_path,
-                runoff_proxy_path, fertilizer_path, biophysical_table_path,
+                global_wgs84_bb, watershed_path, local_workspace_dir, dem_path,
+                lulc_path, runoff_proxy_path, fertilizer_path,
+                biophysical_table_path,
                 threshold_flow_accumulation, k_param, target_pixel_size,
                 biophysical_table_lucode_field, stitch_raster_queue_map,
                 result_suffix),
@@ -1138,17 +1135,10 @@ def main():
             #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE, FERTILIZER_INTENSIFIED_KEY),
             #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE, FERTILIZER_INTENSIFIED_KEY),
             #(LULC_SC1_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE, FERTILIZER_2050_KEY),
-            (LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE, FERTILIZER_2050_KEY),
+            #(LULC_SC2_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_LUCODE_VALUE, FERTILIZER_2050_KEY),
             (NLCD_COTTON_TO_83_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             ]:
-
-        global_bb = _calculate_intersecting_bounding_box([
-            data_map[DEM_KEY],
-            data_map[EROSIVITY_KEY],
-            data_map[ERODIBILITY_KEY],
-            data_map[lulc_key],])
-        continue
 
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
@@ -1264,6 +1254,22 @@ def _calculate_intersecting_bounding_box(raster_path_list):
             raster_bounding_box_list, 'intersection')
     LOGGER.info(f'calculated target_bounding_box: {target_bounding_box}')
     return target_bounding_box
+
+
+def _watersheds_intersect(wgs84_bb, watersheds_path):
+    """True if watersheds intersect the wgs84 bounding box."""
+    watershed_info = geoprocessing.get_vector_info(watersheds_path)
+    watershed_wgs84_bb = geoprocessing.transform_bounding_box(
+        watershed_info['bounding_box'],
+        watershed_info['projection_wkt'],
+        osr.SRS_WKT_WGS84_LAT_LONG)
+    try:
+        _ = geoprocessing.merge_bounding_box_list(
+            [wgs84_bb, watershed_wgs84_bb], 'intersection')
+        return True
+    except ValueError:
+        LOGGER.warn(f'{watersheds_path} does not intersect {wgs84_bb}')
+        return False
 
 
 if __name__ == '__main__':
