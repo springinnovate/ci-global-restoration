@@ -1136,11 +1136,11 @@ def main():
             (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             ]:
 
-        global_bb = _calculate_intersecting_bounding_box(
+        global_bb = _calculate_intersecting_bounding_box([
             data_map[DEM_KEY],
             data_map[EROSIVITY_KEY],
             data_map[ERODIBILITY_KEY],
-            data_map[lulc_key],)
+            data_map[lulc_key],])
         return
 
         if run_sdr:
