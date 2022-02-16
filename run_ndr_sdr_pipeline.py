@@ -305,7 +305,6 @@ def fetch_and_unpack_data(task_graph):
         transient_run=True,
         task_name='download ecoshards')
     file_map = fetch_task.get()
-    LOGGER.debug(file_map)
     LOGGER.info('downloaded data')
     dem_dir = os.path.join(data_dir, DEM_KEY)
     dem_vrt_path = os.path.join(dem_dir, 'dem.vrt')
@@ -1075,7 +1074,6 @@ def main():
         WORKSPACE_DIR, multiprocessing.cpu_count(), 15.0,
         parallel_mode='process', taskgraph_name='run pipeline main')
     data_map = fetch_and_unpack_data(task_graph)
-    LOGGER.debug(data_map)
 
     watershed_subset = {
         #'af_bas_15s_beta': [19039, 23576, 18994],
@@ -1253,7 +1251,7 @@ def _warp_raster_stack(
 def _calculate_intersecting_bounding_box(raster_path_list):
     # create intersecting bounding box of input data
     raster_info_list = [
-        geoprocessing.get_raster_info(raster_path)['bounding_box']
+        geoprocessing.get_raster_info(raster_path)
         for raster_path in raster_path_list]
     raster_bounding_box_list = [
         geoprocessing.transform_bounding_box(
