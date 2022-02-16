@@ -916,10 +916,10 @@ def stitch_worker(
         while True:
             payload = rasters_to_stitch_queue.get()
             if payload is not None:
+                if payload[0] is None:  # means skip this raster
+                    processed_so_far += 1
+                    continue
                 stitch_buffer_list.append(payload)
-            if payload[0] is None:  # means skip this raster
-                processed_so_far += 1
-                continue
 
             if len(stitch_buffer_list) > N_TO_BUFFER_STITCH or payload is None:
                 LOGGER.info(
@@ -1096,9 +1096,6 @@ def main():
     watershed_subset_list = watershed_subset_task.get()
 
     task_graph.join()
-
-    LOGGER.debug(len(watershed_subset_list))
-    LOGGER.debug(watershed_subset_list)
 
     sdr_target_stitch_raster_map = {
         'sed_export.tif': os.path.join(
