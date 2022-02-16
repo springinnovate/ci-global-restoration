@@ -693,9 +693,12 @@ def _execute_sdr_job(
         None.
     """
     if not _watersheds_intersect(global_wgs84_bb, watersheds_path):
+        LOGGER.debug(f'{watersheds_path} does not overlap {global_wgs84_bb}')
         for local_result_path, stitch_queue in stitch_raster_queue_map.items():
             # indicate skipping
             stitch_queue.put((None, 1))
+
+        return
 
     local_sdr_taskgraph = taskgraph.TaskGraph(local_workspace_dir, -1)
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
@@ -799,6 +802,7 @@ def _execute_ndr_job(
         for local_result_path, stitch_queue in stitch_raster_queue_map.items():
             # indicate skipping
             stitch_queue.put((None, 1))
+        return
 
     local_ndr_taskgraph = taskgraph.TaskGraph(local_workspace_dir, -1)
     dem_pixel_size = geoprocessing.get_raster_info(dem_path)['pixel_size']
@@ -1266,6 +1270,7 @@ def _watersheds_intersect(wgs84_bb, watersheds_path):
     try:
         _ = geoprocessing.merge_bounding_box_list(
             [wgs84_bb, watershed_wgs84_bb], 'intersection')
+        LOGGER.info(f'{watersheds_path} intersects {wgs84_bb} with {watershed_wgs84_bb}')
         return True
     except ValueError:
         LOGGER.warn(f'{watersheds_path} does not intersect {wgs84_bb}')
