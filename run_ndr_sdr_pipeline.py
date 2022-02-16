@@ -302,6 +302,7 @@ def fetch_and_unpack_data(task_graph):
         func=fetch_data,
         args=(ECOSHARD_MAP, data_dir),
         store_result=True,
+        transient_run=True,
         task_name='download ecoshards')
     file_map = fetch_task.get()
     LOGGER.debug(file_map)
