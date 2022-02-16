@@ -8,6 +8,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import sys
 import threading
 import time
 
@@ -555,6 +556,10 @@ def _run_sdr(
     Returns:
         None.
     """
+    # create intersecting bounding box of input data
+    global_bb = _calculate_intersecting_bounding_box(
+        [dem_path, erosivity_path, erodibility_path, lulc_path])
+
     # create global stitch rasters and start workers
     stitch_raster_queue_map = {}
     stitch_worker_list = []
@@ -572,8 +577,8 @@ def _run_sdr(
         if not os.path.exists(global_stitch_raster_path):
             LOGGER.info(f'creating {global_stitch_raster_path}')
             driver = gdal.GetDriverByName('GTiff')
-            n_cols = int((GLOBAL_BB[2]-GLOBAL_BB[0])/GLOBAL_PIXEL_SIZE_DEG)
-            n_rows = int((GLOBAL_BB[3]-GLOBAL_BB[1])/GLOBAL_PIXEL_SIZE_DEG)
+            n_cols = int((global_bb[2]-global_bb[0])/GLOBAL_PIXEL_SIZE_DEG)
+            n_rows = int((global_bb[3]-global_bb[1])/GLOBAL_PIXEL_SIZE_DEG)
             LOGGER.info(f'**** creating raster of size {n_cols} by {n_rows}')
             target_raster = driver.Create(
                 global_stitch_raster_path,
@@ -586,8 +591,8 @@ def _run_sdr(
             wgs84_srs.ImportFromEPSG(4326)
             target_raster.SetProjection(wgs84_srs.ExportToWkt())
             target_raster.SetGeoTransform(
-                [GLOBAL_BB[0], GLOBAL_PIXEL_SIZE_DEG, 0,
-                 GLOBAL_BB[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
+                [global_bb[0], GLOBAL_PIXEL_SIZE_DEG, 0,
+                 global_bb[3], 0, -GLOBAL_PIXEL_SIZE_DEG])
             target_band = target_raster.GetRasterBand(1)
             target_band.SetNoDataValue(-9999)
             target_raster = None
@@ -1130,6 +1135,14 @@ def main():
             (NLCD_COTTON_TO_83_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             (BASE_NLCD_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NLCD_LUCODE, FERTILIZER_CURRENT_KEY),
             ]:
+
+        global_bb = _calculate_intersecting_bounding_box(
+            data_map[DEM_KEY],
+            data_map[EROSIVITY_KEY],
+            data_map[ERODIBILITY_KEY],
+            data_map[lulc_key],)
+        return
+
         if run_sdr:
             sdr_workspace_dir = os.path.join(SDR_WORKSPACE_DIR, dem_key)
             # SDR doesn't have fert scenarios
@@ -1226,6 +1239,24 @@ def _warp_raster_stack(
                 },
             target_path_list=[warped_raster_path],
             task_name=f'warping {warped_raster_path}')
+
+
+def _calculate_intersecting_bounding_box(raster_path_list):
+    # create intersecting bounding box of input data
+    raster_info_list = [
+        geoprocessing.get_raster_info(raster_path)['bounding_box']
+        for raster_path in raster_path_list]
+    raster_bounding_box_list = [
+        geoprocessing.transform_bounding_box(
+            info['bounding_box'],
+            info['projection_wkt'],
+            osr.SRS_WKT_WGS84_LAT_LONG)
+        for info in raster_info_list]
+
+    target_bounding_box = geoprocessing.merge_bounding_box_list(
+            raster_bounding_box_list, 'intersection')
+    LOGGER.info(f'calculated target_bounding_box: {target_bounding_box}')
+    return target_bounding_box
 
 
 if __name__ == '__main__':
