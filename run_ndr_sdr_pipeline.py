@@ -254,6 +254,11 @@ def fetch_data(ecoshard_map, data_dir):
         else:
             url = value
         if url.startswith('http'):
+            target_path = os.path.join(data_dir, os.path.basename(url))
+            data_map[key] = target_path
+            if os.path.exists(target_path):
+                LOGGER.info(f'{target_path} exists, so skipping download')
+                continue
             response = requests.head(url)
             if response:
                 target_path = os.path.join(data_dir, os.path.basename(url))
@@ -263,10 +268,12 @@ def fetch_data(ecoshard_map, data_dir):
                         args=(url, nodata, target_path),
                         target_path_list=[target_path],
                         task_name=f'download {url}')
-                data_map[key] = target_path
             else:
                 raise ValueError(f'{key}: {url} does not refer to a url')
         else:
+            if not os.path.exists(url):
+                raise ValueError(
+                    f'expected an existing file at {url} but not found')
             data_map[key] = url
     LOGGER.info('waiting for downloads to complete')
     task_graph.close()
