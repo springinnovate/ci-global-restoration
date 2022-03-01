@@ -56,7 +56,7 @@ def main():
         args=((flow_dir_path, 1), 'd8', outlet_vector_path),
         target_path_list=[outlet_vector_path],
         dependent_task_list=[route_task],
-        task_name=f'detect outlets on {flow_dir_path}'
+        task_name=f'detect outlets on {flow_dir_path}')
 
     # task_graph.add_task(
     #     func=extract_strahler_streams_d8,
