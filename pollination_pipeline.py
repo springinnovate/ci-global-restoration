@@ -50,6 +50,9 @@ def main():
     #python make_poll_suff.py "D:\repositories\tnc-sci-ncscobenefits\workspace\data\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_e6a8da.tif"
     #python make_poll_suff.py "D:\repositories\tnc-sci-ncscobenefits\workspace\data\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-1992-v2.0.7cds_compressed_md5_83ec1b.tif"
 
+    #ACTUALLY, STOP USING THIS ONE GO HERE INSTEAD:
+    #pollination_sufficiency/pollination_pipeline_calc_ppl_fed.py
+    
     calculation_list = [ 
         {
            'expression': 'raster1*raster2*raster3*(raster4>0)+(raster4<1)*-9999',
