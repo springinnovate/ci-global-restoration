@@ -47,33 +47,35 @@ def main():
     #python make_poll_suff.py ./Sc2v5_md5_a3ce41871b255adcd6e1c65abfb1ddd0.tif
     #python make_poll_suff.py ./Sc2v6_md5_dc75e27f0cb49a84e082a7467bd11214.tif
     #python make_poll_suff.py "D:\ecoshard\CI_PPC\scenarios\Sc3v1_PNVnoag_md5_c07865b995f9ab2236b8df0378f9206f.tif"
+    #python make_poll_suff.py "D:\repositories\tnc-sci-ncscobenefits\workspace\data\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_e6a8da.tif"
+    #python make_poll_suff.py "D:\repositories\tnc-sci-ncscobenefits\workspace\data\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-1992-v2.0.7cds_compressed_md5_83ec1b.tif"
 
     calculation_list = [ 
-        #{
-        #   'expression': 'raster1*raster2*raster3*(raster4>0)+(raster4<1)*-9999',
-        #   'symbol_to_path_map': { 
-        #       'raster1': "monfreda_2008_yield_poll_dep_ppl_fed_5min.tif", #https://storage.googleapis.com/critical-natural-capital-ecoshards/monfreda_2008_yield_poll_dep_ppl_fed_5min.tif
-        #       'raster2': r"workspace_poll_suff\churn\poll_suff_hab_ag_coverage_rasters\poll_suff_ag_coverage_prop_10s_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46.tif",
-        #       'raster3': "esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif", # https://storage.googleapis.com/ecoshard-root/esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif
-        #       'raster4': r"workspace_poll_suff\churn\ag_mask\ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020_modVCFTree1km_md5_1cef3d5ad126b8bb34deb19d9ffc7d46_ag_mask.tif"
-        #    },
-        #    'target_nodata': -9999,
-        #    'target_pixel_size': (0.0027777777777777778,-0.0027777777777777778),
-        #    'resample_method': 'near',
-        #    'target_raster_path': "pollination_ppl_fed_on_ag_10s_esa2020mVCF.tif",
-        #},
         {
            'expression': 'raster1*raster2*raster3*(raster4>0)+(raster4<1)*-9999',
-           'symbol_to_path_map': {
+           'symbol_to_path_map': { 
                'raster1': "monfreda_2008_yield_poll_dep_ppl_fed_5min.tif", #https://storage.googleapis.com/critical-natural-capital-ecoshards/monfreda_2008_yield_poll_dep_ppl_fed_5min.tif
-               'raster2': r"D:\repositories\pollination_sufficiency\workspace_poll_suff\churn\poll_suff_hab_ag_coverage_rasters\poll_suff_ag_coverage_prop_10s_Sc3v1_PNVnoag_md5_c07865b995f9ab2236b8df0378f9206f.tif",
+               'raster2': r"workspace_poll_suff\churn\poll_suff_hab_ag_coverage_rasters\poll_suff_ag_coverage_prop_10s_marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-1992-v2.0.7cds_compressed_md5_83ec1b.tif",
                'raster3': "esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif", # https://storage.googleapis.com/ecoshard-root/esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif
-               'raster4': r"D:\repositories\pollination_sufficiency\workspace_poll_suff\churn\ag_mask\Sc3v1_PNVnoag_md5_c07865b995f9ab2236b8df0378f9206f_ag_mask.tif",
+               'raster4': r"workspace_poll_suff\churn\ag_mask\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-1992-v2.0.7cds_compressed_md5_83ec1b_ag_mask.tif"
             },
             'target_nodata': -9999,
             'target_pixel_size': (0.0027777777777777778,-0.0027777777777777778),
             'resample_method': 'near',
-            'target_raster_path': "pollination_ppl_fed_on_ag_10s_Sc3v1_PNVnoag.tif",
+            'target_raster_path': "pollination_ppl_fed_on_ag_10s_esa2020mar.tif",
+        },
+        {
+           'expression': 'raster1*raster2*raster3*(raster4>0)+(raster4<1)*-9999',
+           'symbol_to_path_map': {
+               'raster1': "monfreda_2008_yield_poll_dep_ppl_fed_5min.tif", #https://storage.googleapis.com/critical-natural-capital-ecoshards/monfreda_2008_yield_poll_dep_ppl_fed_5min.tif
+               'raster2': r"D:\repositories\pollination_sufficiency\workspace_poll_suff\churn\poll_suff_hab_ag_coverage_rasters\poll_suff_ag_coverage_prop_10s_marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_e6a8da.tif",
+               'raster3': "esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif", # https://storage.googleapis.com/ecoshard-root/esa_pixel_area_ha_md5_1dd3298a7c4d25c891a11e01868b5db6.tif
+               'raster4': r"D:\repositories\pollination_sufficiency\workspace_poll_suff\churn\ag_mask\marine_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1_md5_e6a8da_ag_mask.tif",
+            },
+            'target_nodata': -9999,
+            'target_pixel_size': (0.0027777777777777778,-0.0027777777777777778),
+            'resample_method': 'near',
+            'target_raster_path': "pollination_ppl_fed_on_ag_10s_esa1992mar.tif",
         },
     ]
 
