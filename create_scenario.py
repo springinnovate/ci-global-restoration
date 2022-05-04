@@ -7,7 +7,8 @@ import hashlib
 from osgeo import gdal
 from ecoshard import geoprocessing
 import numpy
-import taskgraph
+from ecoshard import taskgraph
+
 
 gdal.SetCacheMax(2**30)
 logging.basicConfig(
