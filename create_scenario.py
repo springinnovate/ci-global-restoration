@@ -69,7 +69,7 @@ def main():
             'either `--flip_target_path` xor `--flip_target_val` must be set')
 
     if args.flip_target_val:
-        flip_val_arg = [numpy.ndarray([args.flip_target_val])]
+        flip_val_arg = [numpy.array(args.flip_target_val)]
     else:
         flip_val_arg = []
 
