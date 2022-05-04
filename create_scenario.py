@@ -55,26 +55,44 @@ def main():
     parser.add_argument(
         'flip_proportion', type=float, help='value in 0..1 to flip lulc pixel')
     parser.add_argument(
-        'flip_target_path', type=str,
+        '--flip_target_path', type=str,
+        help='raster of values to set in lulc raster if prop > flip_prop')
+    parser.add_argument(
+        '--flip_target_val', type=float,
         help='value to set in lulc raster if prop > flip_prop')
-
     args = parser.parse_args()
 
-    flip_basename = os.path.basename(
-        os.path.splitext(args.flip_target_path)[0])
-    target_raster_path = (
-        f'''{flip_basename}_{args.flip_proportion}_{
-            os.path.basename(args.lulc_path)}''')
+    base_raster_path_list = [args.lulc_path, args.probability_path]
+    align_mode_list = ['mode', 'average']
+    if bool(args.flip_target_path) != bool(args.flip_target_val):
+        raise ValueError(
+            'either `--flip_target_path` xor `--flip_target_path` must be set')
 
-    base_raster_path_list = [
-        args.lulc_path, args.probability_path, args.flip_target_path]
+    if args.flip_target_val:
+        flip_val_arg = (args.flip_target_val, 'raw')
+    else:
+        flip_val_arg = []
+
+    if args.flip_target_path:
+        flip_basename = os.path.basename(
+            os.path.splitext(args.flip_target_path)[0])
+        target_raster_path = (
+            f'''{flip_basename}_{args.flip_proportion}_{
+                os.path.basename(args.lulc_path)}''')
+        base_raster_path_list.append(args.flip_target_path)
+        align_mode_list.append('mode')
+    else:
+        target_raster_path = (
+            f'''{args.flip_target_val}_{args.flip_proportion}_{
+                os.path.basename(args.lulc_path)}''')
 
     path_hash = hashlib.sha256()
     path_hash.update(','.join([
         os.path.basename(path) for path in base_raster_path_list + [
-            str(args.flip_proportion)]]).encode(
+            str(args.flip_proportion)] + flip_val_arg]).encode(
         'utf-8'))
-    workspace_dir = os.path.join('_create_scenario_workspace', path_hash.hexdigest()[:5])
+    workspace_dir = os.path.join(
+        '_create_scenario_workspace', path_hash.hexdigest()[:5])
     os.makedirs(workspace_dir, exist_ok=True)
 
     task_graph = taskgraph.TaskGraph(workspace_dir, -1)
@@ -89,20 +107,26 @@ def main():
         func=geoprocessing.align_and_resize_raster_stack,
         args=(
             base_raster_path_list,
-            aligned_raster_path_list, ['mode', 'average', 'mode'],
+            aligned_raster_path_list, align_mode_list,
             lulc_info['pixel_size'], 'union'),
         target_path_list=aligned_raster_path_list,
         task_name='align raster stack')
 
-    LOGGER.info(
-        f'flip values >= {args.flip_proportion} to {args.flip_target_path}')
+    if args.flip_target_path:
+        LOGGER.info(
+            f'flip values >= {args.flip_proportion} to '
+            f'{args.flip_target_path}')
+    else:
+        LOGGER.info(
+            f'flip values >= {args.flip_proportion} to '
+            f'{args.flip_target_val}')
 
     prob_nodata = geoprocessing.get_raster_info(
         args.probability_path)['nodata'][0]
     task_graph.add_task(
         func=geoprocessing.raster_calculator,
         args=(
-            [(p, 1) for p in aligned_raster_path_list] + [
+            [(p, 1) for p in aligned_raster_path_list] + flip_val_arg + [
                 (args.flip_proportion, 'raw'), (prob_nodata, 'raw')],
             _flip_pixel_proportion, target_raster_path,
             lulc_info['datatype'],
