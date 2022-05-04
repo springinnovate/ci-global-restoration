@@ -64,9 +64,9 @@ def main():
 
     base_raster_path_list = [args.lulc_path, args.probability_path]
     align_mode_list = ['mode', 'average']
-    if bool(args.flip_target_path) != bool(args.flip_target_val):
+    if bool(args.flip_target_path) == bool(args.flip_target_val):
         raise ValueError(
-            'either `--flip_target_path` xor `--flip_target_path` must be set')
+            'either `--flip_target_path` xor `--flip_target_val` must be set')
 
     if args.flip_target_val:
         flip_val_arg = (args.flip_target_val, 'raw')
