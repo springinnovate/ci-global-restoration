@@ -88,7 +88,7 @@ def main():
 
     path_hash = hashlib.sha256()
     path_hash.update(','.join([
-        os.path.basename(path) for path in base_raster_path_list + [
+        path for path in base_raster_path_list + [
             str(args.flip_proportion)] + [str(flip_val_arg[0])]]).encode(
         'utf-8'))
     workspace_dir = os.path.join(

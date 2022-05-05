@@ -51,6 +51,7 @@ def main():
         dependent_task_list=[fill_task],
         task_name=f'route {dem_raster_path}')
 
+    LOGGER.debug('flow accum')
     flow_accum_raster_path = os.path.join(
         WORKSPACE_DIR, f'flow_accum_{os.path.basename(dem_raster_path)}')
     flow_accum_task = task_graph.add_task(
@@ -61,6 +62,7 @@ def main():
         dependent_task_list=[flow_dir_task],
         task_name=f'flow accum for {flow_dir_raster_path}')
 
+    LOGGER.debug('stream vector')
     stream_vector_path = os.path.join(WORKSPACE_DIR, f'''streams_{
         os.path.basename(os.path.splitext(dem_raster_path)[0])}.gpkg''')
     extract_streams_task = task_graph.add_task(
@@ -73,6 +75,7 @@ def main():
         dependent_task_list=[flow_dir_task, flow_accum_task],
         task_name=f'extract streams {flow_dir_raster_path}')
 
+    LOGGER.debug('subwatershed extraction')
     watershed_boundary_vector_path = os.path.join(
         WORKSPACE_DIR, f'''subwatersheds_{
             os.path.basename(os.path.splitext(dem_raster_path)[0])}.gpkg''')
