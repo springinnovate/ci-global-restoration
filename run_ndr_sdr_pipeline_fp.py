@@ -77,8 +77,8 @@ SKIP_TASK_SET = {
 LULC_ESA_SSP1_ARG_KEY = 'ESA_mod_SSP1_Argentina'
 LULC_ESA_SSP3_ARG_KEY = 'ESA_mod_SSP3_Argentina'
 LULC_PNV_ARG_KEY = 'PNV_full_on_ESA_global'
-LULC_ESA_VCUR_ARG_KEY = 'ESA2020_Viscose_Current_Indonesia'
-LULC_ESA_VFUT_ARG_KEY = 'ESA2020_Viscose_Future_Indonesia'
+LULC_ESA_VCUR_ARG_KEY = 'current_viscose_ESA2020_Indonesia'
+LULC_ESA_VFUT_ARG_KEY = 'future_viscose_ESA2020_Indonesia'
 NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY = 'new_esa_biophysical_121621'
 NEW_ESA_LUCODE_VALUE = 'ID'
 FERTILIZER_CURRENT_KEY = 'fertilizer_current'
@@ -87,8 +87,8 @@ ECOSHARD_MAP = {
     LULC_ESA_SSP1_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_SSP1_Argentina_md5_6f3ded.tif', 0),
     LULC_ESA_SSP3_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_SSP3_Argentina_md5_29633f.tif', 0),
     LULC_PNV_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/key_datasets/pnv/PNV_full_on_ESA_md5_24fe98.tif', 0),
-    LULC_ESA_VCUR_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/ESA2020_CurrentViscose_Indonesia_md5_7d9e54.tif', 0),
-    LULC_ESA_VFUT_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/ESA_FutureViscose_Indonesia_md5_e3f1f0.tif', 0),
+    LULC_ESA_VCUR_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/current_viscose_ESA2020_modVCFv2_Indonesia_md5_b411a2.tif', 0),
+    LULC_ESA_VFUT_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/future_viscose_ESA2020_modVCFv2_Indonesia_md5_ef7028.tif', 0),
     FERTILIZER_CURRENT_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Nrates_NCIcurrentRevQ_add_smithpnv_background_md5_0cdf5cd1c3ba6e1032fcac63174fa8e1.tif',
     NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
     DEM_KEY: 'https://storage.googleapis.com/ecoshard-root/key_datasets/global_dem_3s_md5_22d0c3809af491fa09d03002bdf09748.zip',
@@ -1044,9 +1044,9 @@ def main():
     dem_key = os.path.basename(os.path.splitext(data_map[DEM_KEY])[0])
     sdr_run_set = set()
     for lulc_key, biophysical_table_key, lucode, fert_key in [
-            (LULC_PNV_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            #(LULC_ESA_VCUR_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            #(LULC_ESA_VFUT_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            #(LULC_PNV_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            (LULC_ESA_VCUR_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            (LULC_ESA_VFUT_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
             ]:
 
         if run_sdr:
