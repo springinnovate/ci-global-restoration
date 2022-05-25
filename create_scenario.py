@@ -110,9 +110,10 @@ def main():
             base_raster_path_list,
             aligned_raster_path_list, align_mode_list,
             lulc_info['pixel_size'], 'union'),
+        kwargs={
+            'target_projection_wkt': geoprocessing.get_raster_info(
+                base_raster_path_list[0])['projection_wkt']},
         target_path_list=aligned_raster_path_list,
-        target_projection_wkt=geoprocessing.get_raster_info(
-            base_raster_path_list[0])['projection_wkt'],
         task_name='align raster stack')
 
     if args.flip_target_path:
