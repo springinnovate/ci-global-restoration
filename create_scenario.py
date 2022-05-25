@@ -89,7 +89,8 @@ def main():
     path_hash = hashlib.sha256()
     path_hash.update(','.join([
         path for path in base_raster_path_list + [
-            str(args.flip_proportion)] + [str(flip_val_arg[0])]]).encode(
+            str(args.flip_proportion)] + [
+                '' if not flip_val_arg else str(flip_val_arg[0])]]).encode(
         'utf-8'))
     workspace_dir = os.path.join(
         '_create_scenario_workspace', path_hash.hexdigest()[:5])
