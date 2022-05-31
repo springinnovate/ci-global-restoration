@@ -76,6 +76,7 @@ SKIP_TASK_SET = {
 
 LULC_ESA_SSP1_ARG_KEY = 'ESA_mod_SSP1_Argentina'
 LULC_ESA_SSP3_ARG_KEY = 'ESA_mod_SSP3_Argentina'
+LULC_ESA_CUR_ARG_KEY = 'ESA_mod2020_Argentina'
 LULC_PNV_ARG_KEY = 'PNV_full_on_ESA_global'
 LULC_ESA_VCUR_ARG_KEY = 'current_viscose_ESA2020_Indonesia'
 LULC_ESA_VFUT_ARG_KEY = 'future_viscose_ESA2020_Indonesia'
@@ -86,6 +87,7 @@ FERTILIZER_CURRENT_KEY = 'fertilizer_current'
 ECOSHARD_MAP = {
     LULC_ESA_SSP1_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_SSP1_Argentina_md5_6f3ded.tif', 0),
     LULC_ESA_SSP3_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_SSP3_Argentina_md5_29633f.tif', 0),
+    LULC_ESA_CUR_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_2020_Argentina_md5_6640f4.tif', 0),
     LULC_PNV_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/key_datasets/pnv/PNV_full_on_ESA_md5_24fe98.tif', 0),
     LULC_ESA_VCUR_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/current_viscose_ESA2020_modVCFv2_Indonesia_md5_b411a2.tif', 0),
     LULC_ESA_VFUT_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/future_viscose_ESA2020_modVCFv2_Indonesia_md5_ef7028.tif', 0),
@@ -1045,8 +1047,8 @@ def main():
     sdr_run_set = set()
     for lulc_key, biophysical_table_key, lucode, fert_key in [
             #(LULC_PNV_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            (LULC_ESA_VCUR_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            (LULC_ESA_VFUT_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            #(LULC_ESA_VCUR_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            (LULC_ESA_CUR_ARG_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
             ]:
 
         if run_sdr:
