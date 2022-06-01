@@ -89,7 +89,8 @@ def main():
     path_hash = hashlib.sha256()
     path_hash.update(','.join([
         path for path in base_raster_path_list + [
-            str(args.flip_proportion)] + [str(flip_val_arg[0])]]).encode(
+            str(args.flip_proportion)] + [
+                '' if not flip_val_arg else str(flip_val_arg[0])]]).encode(
         'utf-8'))
     workspace_dir = os.path.join(
         '_create_scenario_workspace', path_hash.hexdigest()[:5])
@@ -109,6 +110,9 @@ def main():
             base_raster_path_list,
             aligned_raster_path_list, align_mode_list,
             lulc_info['pixel_size'], 'union'),
+        kwargs={
+            'target_projection_wkt': geoprocessing.get_raster_info(
+                base_raster_path_list[0])['projection_wkt']},
         target_path_list=aligned_raster_path_list,
         task_name='align raster stack')
 
