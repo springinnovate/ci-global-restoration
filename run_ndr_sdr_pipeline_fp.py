@@ -80,7 +80,7 @@ LULC_ESA_CUR_ARG_KEY = 'ESA_mod2020_Argentina'
 LULC_PNV_KEY = 'PNV_full_on_ESA_global'
 LULC_ESA_VCUR_IND_KEY = 'current_viscose_ESA2020_Indonesia'
 LULC_ESA_VFUT_IND_KEY = 'future_viscose_ESA2020_Indonesia'
-LULC_NLCD_US_KEY = 'nlcd2016'
+LULC_NLCD_US_KEY = 'nlcd2016_cotton_to_82'
 LULC_NLCD_US_COTTON_KEY = 'nlcd2016_cotton_to_83'
 NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY = 'new_esa_biophysical_121621'
 NEW_ESA_BIOPHYSICAL_121621_IND_TABLE_KEY = 'new_esa_biophysical_121621_indonesia'
@@ -94,8 +94,8 @@ ECOSHARD_MAP = {
     LULC_ESA_CUR_ARG_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/argentina/ESA_mod_2020_Argentina_md5_6640f4.tif', 0),
     LULC_PNV_KEY: ('https://storage.googleapis.com/ecoshard-root/key_datasets/pnv/PNV_full_on_ESA_md5_24fe98.tif', 0),
     LULC_ESA_VCUR_IND_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/current_viscose_ESA2020_modVCFv2_Indonesia_md5_b411a2.tif', 0),
-    LULC_ESA_VFUT_IND_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/future_viscose_ESA2020_modVCFv2_Indonesia_md5_ef7028.tif', 0),
-    LULC_NLCD_US_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/us_nlcd/scenarios/nlcd2016_compressed_md5_f372b.tif', 0),
+    LULC_ESA_VFUT_IND_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/indonesia/scenarios/futurepluscurrent_viscose_ESA2020_modVCFv2_Indonesia_md5_64c967.tif', 0),
+    LULC_NLCD_US_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/us_nlcd/scenarios/cotton_to_82_nlcd2016_md5_309da4.tif', 0),
     LULC_NLCD_US_COTTON_KEY: ('https://storage.googleapis.com/ecoshard-root/ci_global_restoration/us_nlcd/scenarios/cotton_to_83_nlcd2016_md5_f265f5.tif', 0),
     FERTILIZER_CURRENT_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/Nrates_NCIcurrentRevQ_add_smithpnv_background_md5_0cdf5cd1c3ba6e1032fcac63174fa8e1.tif',
     NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY: 'https://storage.googleapis.com/ecoshard-root/ci_global_restoration/new_esa_biophysical_121621_md5_b0c83182473b6c2203012385187490e3.csv',
@@ -1055,9 +1055,9 @@ def main():
     sdr_run_set = set()
     for lulc_key, biophysical_table_key, lucode, fert_key in [
             #(LULC_PNV_KEY, NEW_ESA_BIOPHYSICAL_121621_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            #(LULC_ESA_VCUR_IND_KEY, NEW_ESA_BIOPHYSICAL_121621_IND_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            #(LULC_ESA_VFUT_IND_KEY, NEW_ESA_BIOPHYSICAL_121621_IND_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
             (LULC_NLCD_US_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
-            (LULC_NLCD_US_COTTON_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
+            #(LULC_NLCD_US_COTTON_KEY, NLCD_BIOPHYSICAL_TABLE_KEY, NEW_ESA_LUCODE_VALUE, FERTILIZER_CURRENT_KEY),
             ]:
 
         if run_sdr:
